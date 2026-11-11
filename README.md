@@ -85,6 +85,21 @@ O serviço de pagamentos existente continua responsável pelo checkout e pelo pr
 
 Refresh tokens são aleatórios, armazenados somente como hash SHA-256 e rotacionados em transação. Reutilização detectada revoga a família. O logout impede novas renovações, mas um access token JWT já emitido continua válido até expirar.
 
+## Frontend Next.js
+
+O protótipo em `web/plataforma-web` usa Next.js App Router e React. O Next age como Backend for Frontend para a Auth API: tokens ficam em cookies `HttpOnly`, e o browser não precisa acessar a API de identidade diretamente nem armazenar JWT no `localStorage`.
+
+Com a Auth API ativa na porta `5000`, abra outro terminal PowerShell:
+
+```powershell
+Copy-Item .\web\plataforma-web\.env.example .\web\plataforma-web\.env.local
+Set-Location .\web\plataforma-web
+npm ci
+npm run dev
+```
+
+Abra `http://localhost:3000` para criar uma conta, entrar e consultar o perfil. `AUTH_API_BASE_URL` é lida somente pelo servidor Next e pode apontar para outra URL se a API estiver em endereço diferente. Em produção, use HTTPS para que os cookies sejam enviados com o atributo `Secure`.
+
 ## Limitações antes de produção
 
 Esta primeira etapa não implementa confirmação de e-mail, recuperação de senha, limitação de tentativas por IP nem deploy dos serviços no Docker. Configure esses controles antes de expor a API publicamente. Não compartilhe o segredo JWT ou credenciais do MySQL.

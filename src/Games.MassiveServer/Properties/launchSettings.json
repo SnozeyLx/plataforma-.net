@@ -1,0 +1,14 @@
+{
+  "profiles": {
+    "Games.MassiveServer": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5001",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "GameAuth__BaseUrl": "http://localhost:5000",
+        "GameServer__PublicAddress": "127.0.0.1"
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0
+WORKDIR /source
+COPY . .
+RUN dotnet tool install --global dotnet-ef --version 10.0.12
+RUN dotnet restore src/Plataforma.AuthApi/Plataforma.AuthApi.csproj
+ENV PATH="${PATH}:/root/.dotnet/tools"
+ENTRYPOINT ["dotnet", "ef"]
+CMD ["database", "update", \
+    "--project", "src/Plataforma.Database/Plataforma.Database.csproj", \
+    "--startup-project", "src/Plataforma.AuthApi/Plataforma.AuthApi.csproj", \
+    "--context", "Plataforma.Database.PlatformDbContext"]

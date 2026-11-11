@@ -1,0 +1,12 @@
+.git
+.vs
+.idea
+.env
+.env.*
+!.env.example
+**/bin
+**/obj
+**/node_modules
+**/.next
+web/plataforma-web/.env.local
+web/plataforma-web/.env.production

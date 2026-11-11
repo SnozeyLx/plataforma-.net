@@ -1,0 +1,18 @@
+@gameApi = http://localhost:5001
+@accessToken = replace-with-an-access-token-from-the-auth-api
+@ticketId = replace-with-a-ticket-id
+
+### Join the matchmaking queue
+POST {{gameApi}}/api/matchmaking/tickets
+Authorization: Bearer {{accessToken}}
+
+### Check queue or match status
+GET {{gameApi}}/api/matchmaking/tickets/{{ticketId}}
+Authorization: Bearer {{accessToken}}
+
+### Cancel a queue or unconsumed match ticket
+DELETE {{gameApi}}/api/matchmaking/tickets/{{ticketId}}
+Authorization: Bearer {{accessToken}}
+
+### Confirm that the HTTP API is running
+GET {{gameApi}}/health

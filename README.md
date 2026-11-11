@@ -1,6 +1,6 @@
 # MinhaPlataforma.Games
 
-Base da plataforma em .NET 10, com autenticação ASP.NET Core Identity, MySQL e JWT. Os projetos de gateway e de servidores de jogo continuam como scaffolds.
+Base da plataforma em .NET 10, com autenticação ASP.NET Core Identity, MySQL, portal Next.js e o primeiro protótipo de matchmaking/handshake para partidas UDP.
 
 ## Projetos
 
@@ -8,7 +8,8 @@ Base da plataforma em .NET 10, com autenticação ASP.NET Core Identity, MySQL e
 - `Plataforma.Database`: Identity, contexto MySQL e migrations.
 - `Plataforma.AuthApi`: registro, login, refresh, logout e perfil autenticado.
 - `Plataforma.Gateway`: entrada HTTP; o proxy YARP ainda não está configurado.
-- `Games.CoopServer` e `Games.MassiveServer`: processos dedicados; transporte e validação de sessão ainda não estão configurados.
+- `Games.CoopServer`: scaffold para um futuro servidor cooperativo.
+- `Games.MassiveServer`: fila em memória, validação de token pela Auth API e handshake UDP com ticket de uso único (LiteNetLib).
 
 ## Requisitos
 
@@ -17,11 +18,11 @@ Base da plataforma em .NET 10, com autenticação ASP.NET Core Identity, MySQL e
 
 ## Banco local
 
-1. Copie `.env.example` para `.env` e substitua as senhas de desenvolvimento.
-2. Execute `docker compose up -d`.
-3. Aguarde o MySQL ficar saudável: `docker compose ps`.
+1. Copie `.env.example` para `.env`, substitua as senhas e configure `JWT_SIGNING_KEY_BASE64` com uma chave aleatória Base64 de pelo menos 32 bytes.
+2. Execute `docker compose up --build -d`.
+3. Confira o estado dos serviços e a execução das migrations com `docker compose ps` e `docker compose logs migrations`.
 
-O volume `mysql_data` preserva os dados entre reinicializações. O arquivo `.env` é para uso local e não deve ser enviado ao Git.
+O Compose sobe MySQL, Auth API, servidor multiplayer e portal web. O volume `mysql_data` preserva os dados entre reinicializações. As portas HTTP e a porta UDP são publicadas somente em `127.0.0.1`; antes de acesso externo, configure um proxy HTTPS e proteja também o transporte UDP. O arquivo `.env` é local e não deve ser enviado ao Git.
 
 ## Configuração da API
 
@@ -51,6 +52,23 @@ dotnet run --project .\src\Plataforma.AuthApi\Plataforma.AuthApi.csproj
 ```
 
 Em desenvolvimento, a especificação OpenAPI fica disponível em `/openapi/v1.json`; `/health` verifica se a API iniciou.
+
+## Matchmaking e servidor de jogo (protótipo)
+
+O cliente autentica por HTTPS na Auth API, envia o access token como Bearer para `POST /api/matchmaking/tickets` e consulta o ticket até o estado `ready`. O servidor de jogo valida o token chamando a rota central `/api/auth/me`; ele não recebe a chave de assinatura JWT. Ao conectar por UDP, o cliente envia somente o `connectionTicket` aleatório, de uso único e com validade curta — nunca o access token no pacote UDP.
+
+Rotas do servidor HTTP:
+
+- `POST /api/matchmaking/tickets` — entra na fila; retorna `202 Accepted` e URL do ticket.
+- `GET /api/matchmaking/tickets/{ticketId}` — consulta fila, partida ou expiração.
+- `DELETE /api/matchmaking/tickets/{ticketId}` — cancela uma entrada na fila ou ticket de conexão ainda não consumido.
+- `GET /health` — health check HTTP.
+
+O servidor UDP usa LiteNetLib na porta `9050`. A fila é em memória, aceita uma fila/configuração por processo e não sobrevive a reinicializações nem coordena réplicas. O protocolo de exemplo somente aceita o `connectionTicket` e responde `ping` com `pong`; não implementa simulação, movimentação, dano, física, reconexão ou condições de vitória. Pontuações e recompensas ainda não podem ser recebidas do cliente.
+
+Os valores `MATCHMAKING_MIN_PLAYERS`, `MATCHMAKING_MAX_PLAYERS`, `MATCHMAKING_QUEUE_TIMEOUT_SECONDS`, `MATCHMAKING_TICKET_LIFETIME_SECONDS` e `GAME_SERVER_PUBLIC_ADDRESS` são configuráveis pelo `.env`. Por padrão, uma partida começa com 2 jogadores e aceita até 50. O arquivo [Matchmaking.http](./src/Games.MassiveServer/Matchmaking.http) mostra como chamar as rotas; o payload inicial UDP é a string `connectionTicket` enviada pelo cliente LiteNetLib.
+
+Para executar o servidor fora do Docker, inicie a Auth API em `http://localhost:5000` e rode `dotnet run --project .\src\Games.MassiveServer\Games.MassiveServer.csproj`. O profile de desenvolvimento escuta HTTP em `5001` e UDP em `9050`.
 
 ## Catálogo e progressão
 
@@ -92,7 +110,6 @@ O protótipo em `web/plataforma-web` usa Next.js App Router e React. O Next age 
 Com a Auth API ativa na porta `5000`, abra outro terminal PowerShell:
 
 ```powershell
-Copy-Item .\web\plataforma-web\.env.example .\web\plataforma-web\.env.local
 Set-Location .\web\plataforma-web
 npm ci
 npm run dev
@@ -102,6 +119,6 @@ Abra `http://localhost:3000` para criar uma conta, entrar e consultar o perfil. 
 
 ## Limitações antes de produção
 
-Esta primeira etapa não implementa confirmação de e-mail, recuperação de senha, limitação de tentativas por IP nem deploy dos serviços no Docker. Configure esses controles antes de expor a API publicamente. Não compartilhe o segredo JWT ou credenciais do MySQL.
+Esta primeira etapa não implementa confirmação de e-mail, recuperação de senha, limitação de tentativas por IP nem um proxy TLS. O matchmaking é de instância única e volátil. LiteNetLib ainda não está protegido por criptografia de aplicação; não publique a porta UDP nem use tickets de jogadores reais até projetar e validar confidencialidade, integridade e proteção contra replay para o transporte. Em produção, use HTTPS para login e matchmaking, proxy com certificados válidos, firewall restritivo, gestão segura de segredos e armazenamento distribuído se houver múltiplas réplicas. Credenciais de banco que já tenham sido expostas devem ser rotacionadas antes de staging.
 
 O provider MySQL selecionado é `MySql.EntityFrameworkCore` 10.0.12, que suporta EF Core 10; sua licença NuGet é `GPL-2.0-only WITH Universal-FOSS-exception-1.0`. Revise a licença para o modelo de distribuição pretendido antes de um lançamento comercial.

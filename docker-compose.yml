@@ -8,7 +8,7 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Configure MYSQL_PASSWORD in .env}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Configure MYSQL_ROOT_PASSWORD in .env}
     ports:
-      - "${MYSQL_PORT:-3306}:3306"
+      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -17,6 +17,72 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+
+  migrations:
+    build:
+      context: .
+      dockerfile: src/Plataforma.AuthApi/Dockerfile.migrations
+    environment:
+      ConnectionStrings__Platform: "Server=mysql;Port=3306;Database=${MYSQL_DATABASE};User ID=${MYSQL_USER};Password=${MYSQL_PASSWORD};"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+
+  auth-api:
+    build:
+      context: .
+      dockerfile: src/Plataforma.AuthApi/Dockerfile
+    environment:
+      ASPNETCORE_HTTP_PORTS: 8080
+      ConnectionStrings__Platform: "Server=mysql;Port=3306;Database=${MYSQL_DATABASE};User ID=${MYSQL_USER};Password=${MYSQL_PASSWORD};"
+      Jwt__Issuer: ${JWT_ISSUER:-plataforma-auth}
+      Jwt__Audience: ${JWT_AUDIENCE:-plataforma-games}
+      Jwt__SigningKeyBase64: ${JWT_SIGNING_KEY_BASE64:?Configure JWT_SIGNING_KEY_BASE64 in .env}
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:${AUTH_API_PORT:-5000}:8080"
+    restart: unless-stopped
+
+  massive-server:
+    build:
+      context: .
+      dockerfile: src/Games.MassiveServer/Dockerfile
+    environment:
+      ASPNETCORE_HTTP_PORTS: 8080
+      GameAuth__BaseUrl: http://auth-api:8080
+      GameAuth__TimeoutSeconds: ${GAME_AUTH_TIMEOUT_SECONDS:-5}
+      GameServer__UdpPort: 9050
+      GameServer__PublicAddress: ${GAME_SERVER_PUBLIC_ADDRESS:-127.0.0.1}
+      Matchmaking__GameCode: ${MATCHMAKING_GAME_CODE:-arena-demo}
+      Matchmaking__MinPlayers: ${MATCHMAKING_MIN_PLAYERS:-2}
+      Matchmaking__MaxPlayers: ${MATCHMAKING_MAX_PLAYERS:-50}
+      Matchmaking__QueueTimeoutSeconds: ${MATCHMAKING_QUEUE_TIMEOUT_SECONDS:-60}
+      Matchmaking__ConnectionTicketLifetimeSeconds: ${MATCHMAKING_TICKET_LIFETIME_SECONDS:-120}
+    depends_on:
+      auth-api:
+        condition: service_started
+    ports:
+      - "127.0.0.1:${MATCHMAKING_API_PORT:-5001}:8080"
+      - "127.0.0.1:${GAME_SERVER_UDP_PORT:-9050}:9050/udp"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: web/plataforma-web/Dockerfile
+    environment:
+      AUTH_API_BASE_URL: http://auth-api:8080
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+    depends_on:
+      auth-api:
+        condition: service_started
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"
+    restart: unless-stopped
 
 volumes:
   mysql_data:

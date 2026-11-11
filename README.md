@@ -8,8 +8,8 @@ Base da plataforma em .NET 10, com autenticação ASP.NET Core Identity, MySQL, 
 - `Plataforma.Database`: Identity, contexto MySQL e migrations.
 - `Plataforma.AuthApi`: registro, login, refresh, logout e perfil autenticado.
 - `Plataforma.Gateway`: entrada HTTP; o proxy YARP ainda não está configurado.
-- `Games.CoopServer`: scaffold para um futuro servidor cooperativo.
-- `Games.MassiveServer`: fila em memória, validação de token pela Auth API e handshake UDP com ticket de uso único (LiteNetLib).
+- `Games.MassiveServer`: fila para partidas de 1 a 50 jogadores, validação de token pela Auth API e handshake UDP com ticket de uso único (LiteNetLib).
+- `Games.CoopServer`: processo separado para partidas cooperativas de 1 a 4 jogadores; compartilha o transporte e a autenticação, mas tem fila e porta UDP próprias.
 
 ## Requisitos
 
@@ -22,7 +22,7 @@ Base da plataforma em .NET 10, com autenticação ASP.NET Core Identity, MySQL, 
 2. Execute `docker compose up --build -d`.
 3. Confira o estado dos serviços e a execução das migrations com `docker compose ps` e `docker compose logs migrations`.
 
-O Compose sobe MySQL, Auth API, servidor multiplayer e portal web. O volume `mysql_data` preserva os dados entre reinicializações. As portas HTTP e a porta UDP são publicadas somente em `127.0.0.1`; antes de acesso externo, configure um proxy HTTPS e proteja também o transporte UDP. O arquivo `.env` é local e não deve ser enviado ao Git.
+O Compose sobe MySQL, Auth API, servidores Massive e Coop, e portal web. O volume `mysql_data` preserva os dados entre reinicializações. As portas HTTP e UDP são publicadas somente em `127.0.0.1`; antes de acesso externo, configure um proxy HTTPS e proteja também o transporte UDP. O arquivo `.env` é local e não deve ser enviado ao Git.
 
 ## Configuração da API
 
@@ -64,11 +64,25 @@ Rotas do servidor HTTP:
 - `DELETE /api/matchmaking/tickets/{ticketId}` — cancela uma entrada na fila ou ticket de conexão ainda não consumido.
 - `GET /health` — health check HTTP.
 
-O servidor UDP usa LiteNetLib na porta `9050`. A fila é em memória, aceita uma fila/configuração por processo e não sobrevive a reinicializações nem coordena réplicas. O protocolo de exemplo somente aceita o `connectionTicket` e responde `ping` com `pong`; não implementa simulação, movimentação, dano, física, reconexão ou condições de vitória. Pontuações e recompensas ainda não podem ser recebidas do cliente.
+O Compose executa os modos em processos isolados:
 
-Os valores `MATCHMAKING_MIN_PLAYERS`, `MATCHMAKING_MAX_PLAYERS`, `MATCHMAKING_QUEUE_TIMEOUT_SECONDS`, `MATCHMAKING_TICKET_LIFETIME_SECONDS` e `GAME_SERVER_PUBLIC_ADDRESS` são configuráveis pelo `.env`. Por padrão, uma partida começa com 2 jogadores e aceita até 50. O arquivo [Matchmaking.http](./src/Games.MassiveServer/Matchmaking.http) mostra como chamar as rotas; o payload inicial UDP é a string `connectionTicket` enviada pelo cliente LiteNetLib.
+- Massive: HTTP `http://localhost:5001`, UDP `9050`, aceita de 1 a 50 jogadores. Por padrão, uma partida solo começa sem atraso.
+- Coop: HTTP `http://localhost:5002`, UDP `9051`, aceita de 1 a 4 jogadores. Aguarda 2 segundos depois que o mínimo é alcançado para reunir jogadores que chegaram juntos; depois inicia mesmo com apenas um.
 
-Para executar o servidor fora do Docker, inicie a Auth API em `http://localhost:5000` e rode `dotnet run --project .\src\Games.MassiveServer\Games.MassiveServer.csproj`. O profile de desenvolvimento escuta HTTP em `5001` e UDP em `9050`.
+`MASSIVE_MIN_PLAYERS` define o mínimo do Massive e aceita valores de 1 a 50. `COOP_MIN_PLAYERS` define o mínimo do Coop (1 a 4); use `COOP_MIN_PLAYERS=2` se quiser exigir pelo menos dois jogadores. `COOP_MAX_PLAYERS` pode reduzir a capacidade, mas não ultrapassar quatro. `COOP_MATCH_START_DELAY_SECONDS` configura a janela de agrupamento (0 a 30 segundos). Os dois modos têm fila e estado em memória separados.
+
+O protocolo de exemplo somente aceita o `connectionTicket` e responde `ping` com `pong`; não implementa simulação, movimentação, dano, física, reconexão ou condições de vitória. Pontuações e recompensas ainda não podem ser recebidas do cliente.
+
+Os valores de tamanho de fila, atraso de agrupamento, endereço e portas são configuráveis pelo `.env` usando as variáveis `MASSIVE_*` e `COOP_*`. Os arquivos [Matchmaking.http](./src/Games.MassiveServer/Matchmaking.http) e [Matchmaking.http do Coop](./src/Games.CoopServer/Matchmaking.http) mostram como chamar as rotas; o payload inicial UDP é a string `connectionTicket` enviada pelo cliente LiteNetLib.
+
+Para executar um servidor fora do Docker, inicie a Auth API em `http://localhost:5000` e rode o projeto desejado:
+
+```powershell
+dotnet run --project .\src\Games.MassiveServer\Games.MassiveServer.csproj
+dotnet run --project .\src\Games.CoopServer\Games.CoopServer.csproj
+```
+
+Os profiles de desenvolvimento escutam Massive em HTTP `5001`/UDP `9050` e Coop em HTTP `5002`/UDP `9051`.
 
 ## Catálogo e progressão
 

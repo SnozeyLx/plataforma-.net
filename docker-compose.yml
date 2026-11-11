@@ -56,9 +56,10 @@ services:
       GameAuth__TimeoutSeconds: ${GAME_AUTH_TIMEOUT_SECONDS:-5}
       GameServer__UdpPort: 9050
       GameServer__PublicAddress: ${GAME_SERVER_PUBLIC_ADDRESS:-127.0.0.1}
-      Matchmaking__GameCode: ${MATCHMAKING_GAME_CODE:-arena-demo}
-      Matchmaking__MinPlayers: ${MATCHMAKING_MIN_PLAYERS:-2}
-      Matchmaking__MaxPlayers: ${MATCHMAKING_MAX_PLAYERS:-50}
+      Matchmaking__GameCode: ${MASSIVE_GAME_CODE:-arena-massive}
+      Matchmaking__MinPlayers: ${MASSIVE_MIN_PLAYERS:-1}
+      Matchmaking__MaxPlayers: ${MASSIVE_MAX_PLAYERS:-50}
+      Matchmaking__MatchStartDelaySeconds: ${MASSIVE_MATCH_START_DELAY_SECONDS:-0}
       Matchmaking__QueueTimeoutSeconds: ${MATCHMAKING_QUEUE_TIMEOUT_SECONDS:-60}
       Matchmaking__ConnectionTicketLifetimeSeconds: ${MATCHMAKING_TICKET_LIFETIME_SECONDS:-120}
     depends_on:
@@ -67,6 +68,30 @@ services:
     ports:
       - "127.0.0.1:${MATCHMAKING_API_PORT:-5001}:8080"
       - "127.0.0.1:${GAME_SERVER_UDP_PORT:-9050}:9050/udp"
+    restart: unless-stopped
+
+  coop-server:
+    build:
+      context: .
+      dockerfile: src/Games.CoopServer/Dockerfile
+    environment:
+      ASPNETCORE_HTTP_PORTS: 8080
+      GameAuth__BaseUrl: http://auth-api:8080
+      GameAuth__TimeoutSeconds: ${GAME_AUTH_TIMEOUT_SECONDS:-5}
+      GameServer__UdpPort: 9051
+      GameServer__PublicAddress: ${COOP_GAME_SERVER_PUBLIC_ADDRESS:-127.0.0.1}
+      Matchmaking__GameCode: ${COOP_GAME_CODE:-arena-coop}
+      Matchmaking__MinPlayers: ${COOP_MIN_PLAYERS:-1}
+      Matchmaking__MaxPlayers: ${COOP_MAX_PLAYERS:-4}
+      Matchmaking__MatchStartDelaySeconds: ${COOP_MATCH_START_DELAY_SECONDS:-2}
+      Matchmaking__QueueTimeoutSeconds: ${COOP_QUEUE_TIMEOUT_SECONDS:-60}
+      Matchmaking__ConnectionTicketLifetimeSeconds: ${COOP_TICKET_LIFETIME_SECONDS:-120}
+    depends_on:
+      auth-api:
+        condition: service_started
+    ports:
+      - "127.0.0.1:${COOP_MATCHMAKING_API_PORT:-5002}:8080"
+      - "127.0.0.1:${COOP_GAME_SERVER_UDP_PORT:-9051}:9051/udp"
     restart: unless-stopped
 
   web:

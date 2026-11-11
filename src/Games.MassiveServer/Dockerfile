@@ -10,6 +10,7 @@ WORKDIR /app
 ENV ASPNETCORE_HTTP_PORTS=8080
 EXPOSE 8080
 EXPOSE 9050/udp
+EXPOSE 9051/udp
 COPY --from=build /app/publish .
 USER app
 ENTRYPOINT ["dotnet", "Games.MassiveServer.dll"]

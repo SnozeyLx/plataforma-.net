@@ -1,0 +1,18 @@
+{
+  "profiles": {
+    "Games.CoopServer": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5002",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "GameAuth__BaseUrl": "http://localhost:5000",
+        "GameServer__UdpPort": "9051",
+        "GameServer__PublicAddress": "127.0.0.1",
+        "Matchmaking__MinPlayers": "1",
+        "Matchmaking__MaxPlayers": "4",
+        "Matchmaking__MatchStartDelaySeconds": "2"
+      }
+    }
+  }
+}

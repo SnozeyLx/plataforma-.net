@@ -107,6 +107,13 @@ public sealed class MatchmakingService(
 
             while (waitingTickets.Length >= _matchmakingOptions.MinPlayers)
             {
+                var matchStartTime = waitingTickets[0].CreatedAt.AddSeconds(
+                    _matchmakingOptions.MatchStartDelaySeconds);
+                if (matchStartTime > now)
+                {
+                    break;
+                }
+
                 var matchTickets = waitingTickets
                     .Take(_matchmakingOptions.MaxPlayers)
                     .ToArray();

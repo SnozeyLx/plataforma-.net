@@ -24,14 +24,10 @@ public sealed class GameServerIntegrationTests
         using var httpClient = new HttpClient();
 
         var firstAccessToken = await RegisterAndLoginAsync(httpClient, authApiUrl);
-        var secondAccessToken = await RegisterAndLoginAsync(httpClient, authApiUrl);
         var firstTicket = await EnqueueAsync(httpClient, gameApiUrl, firstAccessToken);
-        var secondTicket = await EnqueueAsync(httpClient, gameApiUrl, secondAccessToken);
         var firstReady = await WaitForMatchAsync(httpClient, gameApiUrl, firstAccessToken, firstTicket.TicketId);
-        var secondReady = await WaitForMatchAsync(httpClient, gameApiUrl, secondAccessToken, secondTicket.TicketId);
 
         Assert.AreEqual("ready", firstReady.Status);
-        Assert.AreEqual(firstReady.MatchId, secondReady.MatchId);
         Assert.IsNotNull(firstReady.ConnectionTicket);
         Assert.IsNotNull(firstReady.ServerAddress);
         Assert.IsNotNull(firstReady.ServerPort);
@@ -71,6 +67,39 @@ public sealed class GameServerIntegrationTests
         {
             client.Stop();
         }
+    }
+
+    [TestMethod]
+    public async Task CoopMatchmaking_TwoPlayersJoinSameMatch()
+    {
+        if (Environment.GetEnvironmentVariable("GAMESERVER_INTEGRATION_TESTS") != "1")
+        {
+            Assert.Inconclusive("Set GAMESERVER_INTEGRATION_TESTS=1 to run against local Docker services.");
+        }
+
+        var authApiUrl = Environment.GetEnvironmentVariable("AUTH_API_BASE_URL") ?? "http://localhost:5000";
+        var coopApiUrl = Environment.GetEnvironmentVariable("COOP_MATCHMAKING_API_BASE_URL") ?? "http://localhost:5002";
+        using var httpClient = new HttpClient();
+        var firstAccessToken = await RegisterAndLoginAsync(httpClient, authApiUrl);
+        var secondAccessToken = await RegisterAndLoginAsync(httpClient, authApiUrl);
+        var firstTicket = await EnqueueAsync(httpClient, coopApiUrl, firstAccessToken);
+        var secondTicket = await EnqueueAsync(httpClient, coopApiUrl, secondAccessToken);
+
+        var firstReady = await WaitForMatchAsync(
+            httpClient,
+            coopApiUrl,
+            firstAccessToken,
+            firstTicket.TicketId);
+        var secondReady = await WaitForMatchAsync(
+            httpClient,
+            coopApiUrl,
+            secondAccessToken,
+            secondTicket.TicketId);
+
+        Assert.AreEqual("ready", firstReady.Status);
+        Assert.AreEqual("ready", secondReady.Status);
+        Assert.AreEqual("arena-coop", firstReady.GameCode);
+        Assert.AreEqual(firstReady.MatchId, secondReady.MatchId);
     }
 
     private static async Task<string> RegisterAndLoginAsync(HttpClient client, string authApiUrl)

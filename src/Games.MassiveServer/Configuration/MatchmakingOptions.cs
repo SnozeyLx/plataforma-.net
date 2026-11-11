@@ -17,6 +17,9 @@ public sealed class MatchmakingOptions
     /// <summary>Gets or sets the maximum number of players assigned to one match.</summary>
     public int MaxPlayers { get; set; } = 50;
 
+    /// <summary>Gets or sets how long to collect additional players after the minimum is reached.</summary>
+    public int MatchStartDelaySeconds { get; set; }
+
     /// <summary>Gets or sets how long a player may wait in the queue.</summary>
     public int QueueTimeoutSeconds { get; set; } = 60;
 
@@ -39,6 +42,11 @@ public sealed class MatchmakingOptionsValidator : IValidateOptions<MatchmakingOp
         if (options.MinPlayers < 1 || options.MaxPlayers < options.MinPlayers || options.MaxPlayers > 50)
         {
             errors.Add("Matchmaking player limits must satisfy 1 <= MinPlayers <= MaxPlayers <= 50.");
+        }
+
+        if (options.MatchStartDelaySeconds is < 0 or > 30)
+        {
+            errors.Add("Matchmaking:MatchStartDelaySeconds must be between 0 and 30.");
         }
 
         if (options.QueueTimeoutSeconds is < 1 or > 600)

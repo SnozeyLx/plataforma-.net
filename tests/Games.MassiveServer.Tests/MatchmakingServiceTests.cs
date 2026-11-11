@@ -1,4 +1,5 @@
 using Games.MassiveServer.Configuration;
+using Games.MassiveServer.Hosting;
 using Games.MassiveServer.Services;
 using Microsoft.Extensions.Options;
 
@@ -40,6 +41,61 @@ public sealed class MatchmakingServiceTests
 
         service.PlayerDisconnected(playerConnection);
         Assert.AreNotEqual(firstTicket.TicketId, service.Enqueue(firstUserId).TicketId);
+    }
+
+    [TestMethod]
+    public void ProcessQueue_MassivePreset_StartsWithOnePlayer()
+    {
+        var (service, _) = CreateService(
+            minPlayers: GameServerPresets.Massive.MinPlayers,
+            maxPlayers: GameServerPresets.Massive.MaxPlayers);
+        var userId = Guid.NewGuid();
+        var ticket = service.Enqueue(userId);
+
+        service.ProcessQueue();
+
+        Assert.AreEqual("ready", service.GetTicket(userId, ticket.TicketId)?.Status);
+    }
+
+    [TestMethod]
+    public void ProcessQueue_CoopPreset_GroupsUpToFourPlayersDuringStartDelay()
+    {
+        var (service, timeProvider) = CreateService(
+            minPlayers: GameServerPresets.Coop.MinPlayers,
+            maxPlayers: GameServerPresets.Coop.MaxPlayers,
+            matchStartDelaySeconds: GameServerPresets.Coop.MatchStartDelaySeconds);
+        var players = Enumerable.Range(0, GameServerPresets.Coop.MaxPlayers)
+            .Select(_ => Guid.NewGuid())
+            .ToArray();
+        var tickets = players
+            .Select(userId => (UserId: userId, Ticket: service.Enqueue(userId)))
+            .ToArray();
+
+        service.ProcessQueue();
+        Assert.IsTrue(tickets.All(player =>
+            service.GetTicket(player.UserId, player.Ticket.TicketId)?.Status == "queued"));
+
+        timeProvider.Advance(TimeSpan.FromSeconds(GameServerPresets.Coop.MatchStartDelaySeconds));
+        service.Enqueue(Guid.NewGuid());
+        service.ProcessQueue();
+
+        var readyTickets = tickets
+            .Select(player => service.GetTicket(player.UserId, player.Ticket.TicketId))
+            .ToArray();
+        Assert.IsTrue(readyTickets.All(ticket => ticket?.Status == "ready"));
+        Assert.AreEqual(1, readyTickets.Select(ticket => ticket?.MatchId).Distinct().Count());
+    }
+
+    [TestMethod]
+    public void ProcessQueue_CoopPreset_HonorsMinimumOfTwoWhenConfigured()
+    {
+        var (service, _) = CreateService(minPlayers: 2, maxPlayers: GameServerPresets.Coop.MaxPlayers);
+        var firstUserId = Guid.NewGuid();
+        var firstTicket = service.Enqueue(firstUserId);
+
+        service.ProcessQueue();
+
+        Assert.AreEqual("queued", service.GetTicket(firstUserId, firstTicket.TicketId)?.Status);
     }
 
     [TestMethod]
@@ -90,7 +146,8 @@ public sealed class MatchmakingServiceTests
     private static (MatchmakingService Service, AdjustableTimeProvider TimeProvider) CreateService(
         int minPlayers,
         int maxPlayers,
-        int queueTimeoutSeconds = 60)
+        int queueTimeoutSeconds = 60,
+        int matchStartDelaySeconds = 0)
     {
         var timeProvider = new AdjustableTimeProvider(
             new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
@@ -98,7 +155,8 @@ public sealed class MatchmakingServiceTests
         {
             MinPlayers = minPlayers,
             MaxPlayers = maxPlayers,
-            QueueTimeoutSeconds = queueTimeoutSeconds
+            QueueTimeoutSeconds = queueTimeoutSeconds,
+            MatchStartDelaySeconds = matchStartDelaySeconds
         });
         var gameServerOptions = Options.Create(new GameServerOptions
         {

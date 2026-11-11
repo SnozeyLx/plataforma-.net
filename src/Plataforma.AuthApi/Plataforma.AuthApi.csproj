@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="..\Plataforma.Core\Plataforma.Core.csproj" />
+    <ProjectReference Include="..\Plataforma.Database\Plataforma.Database.csproj" />
+  </ItemGroup>
+</Project>

@@ -52,6 +52,29 @@ dotnet run --project .\src\Plataforma.AuthApi\Plataforma.AuthApi.csproj
 
 Em desenvolvimento, a especificação OpenAPI fica disponível em `/openapi/v1.json`; `/health` verifica se a API iniciou.
 
+## Catálogo e progressão
+
+O modelo de dados inclui:
+
+- `Games`: catálogo com slug único e estados draft, publicado e arquivado. Arquivar preserva o histórico.
+- `GamePlayerProgress`: progresso agregado com nível, experiência, partidas e tempo jogado; há no máximo um registro por jogador/jogo.
+- `GameSessions`: sessão identificada por UUID, com período, pontuação, resultado e experiência concedida. O UUID permite detectar reenvios; o futuro endpoint ainda deverá tratar a repetição de modo idempotente.
+- `GameAchievements` e `UserAchievementProgress`: definições de conquistas por jogo e o progresso/desbloqueio de cada usuário.
+
+Esta entrega prepara as tabelas e migrations, mas ainda não expõe endpoints administrativos para cadastrar jogos nem endpoints para receber resultados dos servidores de jogo. Uma sessão requer que o progresso do jogador para aquele jogo já exista. Esses resultados não devem ser aceitos diretamente do cliente do jogador; a próxima integração precisa autenticar os servidores e atualizar sessão e progresso de forma transacional e idempotente.
+
+Para criar as tabelas em um banco local que já tenha as migrations de autenticação:
+
+```powershell
+dotnet ef database update --project .\src\Plataforma.Database\Plataforma.Database.csproj --startup-project .\src\Plataforma.AuthApi\Plataforma.AuthApi.csproj --context Plataforma.Database.PlatformDbContext
+```
+
+## Economia e pagamentos (planejamento)
+
+A economia não faz parte desta entrega. O modelo futuro distingue a moeda da plataforma — a única que poderá participar de conversão com dinheiro real — das moedas internas que cada jogo poderá criar. Moedas de jogo não terão conversão automática para saldo da plataforma.
+
+O serviço de pagamentos existente continua responsável pelo checkout e pelo provedor externo. A plataforma deverá registrar a concessão confirmada em um ledger imutável, com uma referência idempotente para impedir créditos duplicados; ações internas de jogo não devem gerar chamadas ao provedor. Antes de implementar essa integração, é necessário revisar o contrato/API do serviço existente e decidir as regras de conversão, estorno e eventual saque.
+
 ## Rotas de autenticação
 
 - `POST /api/auth/register` — cria conta com e-mail e senha de pelo menos 12 caracteres.

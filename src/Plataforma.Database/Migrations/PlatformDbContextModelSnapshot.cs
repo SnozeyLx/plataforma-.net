@@ -145,6 +145,173 @@ namespace Plataforma.Database.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Plataforma.Database.Entities.Game", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<string>("IconUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("varchar(2048)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "Name");
+
+                    b.ToTable("Games");
+                });
+
+            modelBuilder.Entity("Plataforma.Database.Entities.GameAchievement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CriteriaJson")
+                        .HasColumnType("json");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<Guid>("GameId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.Property<int>("Points")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.Property<long>("TargetProgress")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GameId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex("GameId", "Status");
+
+                    b.ToTable("GameAchievements");
+                });
+
+            modelBuilder.Entity("Plataforma.Database.Entities.GamePlayerProgress", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("GameId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long>("Experience")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("LastPlayedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Level")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
+                    b.Property<long>("MatchesPlayed")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("TotalPlaytimeSeconds")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("UserId", "GameId");
+
+                    b.HasIndex("GameId", "Experience");
+
+                    b.ToTable("GamePlayerProgress");
+                });
+
+            modelBuilder.Entity("Plataforma.Database.Entities.GameSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("EndedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long>("ExperienceAwarded")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("GameId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Outcome")
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.Property<long?>("Score")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GameId", "StartedAtUtc");
+
+                    b.HasIndex("UserId", "GameId", "StartedAtUtc");
+
+                    b.ToTable("GameSessions");
+                });
+
             modelBuilder.Entity("Plataforma.Database.Entities.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -191,6 +358,33 @@ namespace Plataforma.Database.Migrations
                     b.HasIndex("FamilyId", "RevokedAtUtc");
 
                     b.ToTable("RefreshTokens");
+                });
+
+            modelBuilder.Entity("Plataforma.Database.Entities.UserAchievementProgress", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("AchievementId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long>("ProgressCurrent")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("UserId", "AchievementId");
+
+                    b.HasIndex("AchievementId", "CompletedAtUtc");
+
+                    b.ToTable("UserAchievementProgress");
                 });
 
             modelBuilder.Entity("Plataforma.Database.Identity.ApplicationUser", b =>
@@ -310,6 +504,39 @@ namespace Plataforma.Database.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Plataforma.Database.Entities.GameAchievement", b =>
+                {
+                    b.HasOne("Plataforma.Database.Entities.Game", null)
+                        .WithMany()
+                        .HasForeignKey("GameId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Plataforma.Database.Entities.GamePlayerProgress", b =>
+                {
+                    b.HasOne("Plataforma.Database.Entities.Game", null)
+                        .WithMany()
+                        .HasForeignKey("GameId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Plataforma.Database.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Plataforma.Database.Entities.GameSession", b =>
+                {
+                    b.HasOne("Plataforma.Database.Entities.GamePlayerProgress", null)
+                        .WithMany()
+                        .HasForeignKey("UserId", "GameId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Plataforma.Database.Entities.RefreshToken", b =>
                 {
                     b.HasOne("Plataforma.Database.Identity.ApplicationUser", "User")
@@ -319,6 +546,21 @@ namespace Plataforma.Database.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Plataforma.Database.Entities.UserAchievementProgress", b =>
+                {
+                    b.HasOne("Plataforma.Database.Entities.GameAchievement", null)
+                        .WithMany()
+                        .HasForeignKey("AchievementId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Plataforma.Database.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

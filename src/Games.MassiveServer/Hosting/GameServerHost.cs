@@ -25,6 +25,7 @@ public static class GameServerHost
         builder.Configuration["Matchmaking:MinPlayers"] ??= preset.MinPlayers.ToString();
         builder.Configuration["Matchmaking:MaxPlayers"] ??= preset.MaxPlayers.ToString();
         builder.Configuration["Matchmaking:MatchStartDelaySeconds"] ??= preset.MatchStartDelaySeconds.ToString();
+        builder.Configuration["Matchmaking:PersistentWorld"] ??= preset.PersistentWorld.ToString();
         builder.Configuration["Matchmaking:QueueTimeoutSeconds"] ??= "60";
         builder.Configuration["Matchmaking:ConnectionTicketLifetimeSeconds"] ??= "120";
 

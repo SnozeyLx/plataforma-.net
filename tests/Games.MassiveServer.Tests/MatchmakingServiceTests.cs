@@ -58,6 +58,58 @@ public sealed class MatchmakingServiceTests
     }
 
     [TestMethod]
+    public void Enqueue_PersistentWorld_AssignsPlayersToSameMatchUntilFull()
+    {
+        var (service, _) = CreateService(
+            minPlayers: 1,
+            maxPlayers: 2,
+            persistentWorld: true);
+        var firstUserId = Guid.NewGuid();
+        var secondUserId = Guid.NewGuid();
+        var thirdUserId = Guid.NewGuid();
+
+        var firstTicket = service.Enqueue(firstUserId);
+        var secondTicket = service.Enqueue(secondUserId);
+        var thirdTicket = service.Enqueue(thirdUserId);
+
+        var firstReady = service.GetTicket(firstUserId, firstTicket.TicketId);
+        var secondReady = service.GetTicket(secondUserId, secondTicket.TicketId);
+        var thirdReady = service.GetTicket(thirdUserId, thirdTicket.TicketId);
+        Assert.AreEqual("ready", firstReady?.Status);
+        Assert.AreEqual(firstReady?.MatchId, secondReady?.MatchId);
+        Assert.AreNotEqual(firstReady?.MatchId, thirdReady?.MatchId);
+    }
+
+    [TestMethod]
+    public void ProcessQueue_MoreThanFiftyPlayers_CreatesSeparateMatchesWithinCapacity()
+    {
+        var (service, _) = CreateService(
+            minPlayers: GameServerPresets.Massive.MinPlayers,
+            maxPlayers: GameServerPresets.Massive.MaxPlayers);
+        var players = Enumerable.Range(0, GameServerPresets.Massive.MaxPlayers + 1)
+            .Select(_ => Guid.NewGuid())
+            .ToArray();
+        var tickets = players
+            .Select(userId => (UserId: userId, Ticket: service.Enqueue(userId)))
+            .ToArray();
+
+        service.ProcessQueue();
+
+        var readyTickets = tickets
+            .Select(player => service.GetTicket(player.UserId, player.Ticket.TicketId))
+            .ToArray();
+        Assert.IsTrue(readyTickets.All(ticket => ticket?.Status == "ready"));
+        var playersPerMatch = readyTickets
+            .GroupBy(ticket => ticket?.MatchId)
+            .Select(match => match.Count())
+            .OrderByDescending(playerCount => playerCount)
+            .ToArray();
+        CollectionAssert.AreEqual(
+            new[] { GameServerPresets.Massive.MaxPlayers, 1 },
+            playersPerMatch);
+    }
+
+    [TestMethod]
     public void ProcessQueue_CoopPreset_GroupsUpToFourPlayersDuringStartDelay()
     {
         var (service, timeProvider) = CreateService(
@@ -147,7 +199,8 @@ public sealed class MatchmakingServiceTests
         int minPlayers,
         int maxPlayers,
         int queueTimeoutSeconds = 60,
-        int matchStartDelaySeconds = 0)
+        int matchStartDelaySeconds = 0,
+        bool persistentWorld = false)
     {
         var timeProvider = new AdjustableTimeProvider(
             new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
@@ -156,7 +209,8 @@ public sealed class MatchmakingServiceTests
             MinPlayers = minPlayers,
             MaxPlayers = maxPlayers,
             QueueTimeoutSeconds = queueTimeoutSeconds,
-            MatchStartDelaySeconds = matchStartDelaySeconds
+            MatchStartDelaySeconds = matchStartDelaySeconds,
+            PersistentWorld = persistentWorld
         });
         var gameServerOptions = Options.Create(new GameServerOptions
         {

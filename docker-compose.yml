@@ -54,7 +54,7 @@ services:
       ASPNETCORE_HTTP_PORTS: 8080
       GameAuth__BaseUrl: http://auth-api:8080
       GameAuth__TimeoutSeconds: ${GAME_AUTH_TIMEOUT_SECONDS:-5}
-      GameServer__UdpPort: 9050
+      GameServer__UdpPort: ${GAME_SERVER_UDP_PORT:-9050}
       GameServer__PublicAddress: ${GAME_SERVER_PUBLIC_ADDRESS:-127.0.0.1}
       Matchmaking__GameCode: ${MASSIVE_GAME_CODE:-arena-massive}
       Matchmaking__MinPlayers: ${MASSIVE_MIN_PLAYERS:-1}
@@ -62,12 +62,13 @@ services:
       Matchmaking__MatchStartDelaySeconds: ${MASSIVE_MATCH_START_DELAY_SECONDS:-0}
       Matchmaking__QueueTimeoutSeconds: ${MATCHMAKING_QUEUE_TIMEOUT_SECONDS:-60}
       Matchmaking__ConnectionTicketLifetimeSeconds: ${MATCHMAKING_TICKET_LIFETIME_SECONDS:-120}
+      Logging__LogLevel__Games.MassiveServer: ${GAME_SERVER_LOG_LEVEL:-Debug}
     depends_on:
       auth-api:
         condition: service_started
     ports:
       - "127.0.0.1:${MATCHMAKING_API_PORT:-5001}:8080"
-      - "127.0.0.1:${GAME_SERVER_UDP_PORT:-9050}:9050/udp"
+      - "${GAME_SERVER_UDP_BIND_ADDRESS:-127.0.0.1}:${GAME_SERVER_UDP_PORT:-9050}:${GAME_SERVER_UDP_PORT:-9050}/udp"
     restart: unless-stopped
 
   coop-server:
@@ -78,7 +79,7 @@ services:
       ASPNETCORE_HTTP_PORTS: 8080
       GameAuth__BaseUrl: http://auth-api:8080
       GameAuth__TimeoutSeconds: ${GAME_AUTH_TIMEOUT_SECONDS:-5}
-      GameServer__UdpPort: 9051
+      GameServer__UdpPort: ${COOP_GAME_SERVER_UDP_PORT:-9051}
       GameServer__PublicAddress: ${COOP_GAME_SERVER_PUBLIC_ADDRESS:-127.0.0.1}
       Matchmaking__GameCode: ${COOP_GAME_CODE:-arena-coop}
       Matchmaking__MinPlayers: ${COOP_MIN_PLAYERS:-1}
@@ -86,12 +87,13 @@ services:
       Matchmaking__MatchStartDelaySeconds: ${COOP_MATCH_START_DELAY_SECONDS:-2}
       Matchmaking__QueueTimeoutSeconds: ${COOP_QUEUE_TIMEOUT_SECONDS:-60}
       Matchmaking__ConnectionTicketLifetimeSeconds: ${COOP_TICKET_LIFETIME_SECONDS:-120}
+      Logging__LogLevel__Games.MassiveServer: ${GAME_SERVER_LOG_LEVEL:-Debug}
     depends_on:
       auth-api:
         condition: service_started
     ports:
       - "127.0.0.1:${COOP_MATCHMAKING_API_PORT:-5002}:8080"
-      - "127.0.0.1:${COOP_GAME_SERVER_UDP_PORT:-9051}:9051/udp"
+      - "${GAME_SERVER_UDP_BIND_ADDRESS:-127.0.0.1}:${COOP_GAME_SERVER_UDP_PORT:-9051}:${COOP_GAME_SERVER_UDP_PORT:-9051}/udp"
     restart: unless-stopped
 
   web:
@@ -100,6 +102,7 @@ services:
       dockerfile: web/plataforma-web/Dockerfile
     environment:
       AUTH_API_BASE_URL: http://auth-api:8080
+      MASSIVE_API_BASE_URL: http://massive-server:8080
       HOSTNAME: 0.0.0.0
       PORT: 3000
     depends_on:

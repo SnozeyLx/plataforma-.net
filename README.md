@@ -24,6 +24,28 @@ Base da plataforma em .NET 10, com autenticação ASP.NET Core Identity, MySQL, 
 
 O Compose sobe MySQL, Auth API, servidores Massive e Coop, e portal web. O volume `mysql_data` preserva os dados entre reinicializações. As portas HTTP e UDP são publicadas somente em `127.0.0.1`; antes de acesso externo, configure um proxy HTTPS e proteja também o transporte UDP. O arquivo `.env` é local e não deve ser enviado ao Git.
 
+## Deploy privado em Linux com CyberPanel
+
+Docker e PM2 podem coexistir: os containers não interrompem os processos PM2, desde que as portas publicadas pelo Compose estejam livres. Esta configuração mantém o banco e as APIs em loopback; o OpenLiteSpeed/CyberPanel deve encaminhar HTTPS para as APIs locais. O portal web continua no serviço existente do PM2.
+
+1. No servidor, confirme `docker --version`, `docker compose version` e as portas TCP `13306`, `15000`–`15002` e UDP `9050`/`9051`. Se Docker não estiver instalado, instale o Docker Engine e o plugin Compose seguindo a documentação oficial para a versão do Ubuntu; não remova pacotes nem serviços PM2 existentes.
+2. Clone/atualize este repositório no servidor. Copie `deploy-production.env.example` para `.env.production` e preencha as senhas e `JWT_SIGNING_KEY_BASE64` diretamente no servidor. Gere valores aleatórios, por exemplo com `openssl rand -hex 32` para senhas e `openssl rand -base64 48` para a chave JWT. Não envie `.env.production` por chat nem para o Git.
+3. Crie registros DNS para os subdomínios de Auth, Massive e Coop do seu domínio (por exemplo, `auth.example.com`, `massive.example.com` e `coop.example.com`), todos apontando para o servidor. No CyberPanel/OpenLiteSpeed, configure HTTPS e proxy reverso para `127.0.0.1:15000`, `127.0.0.1:15001` e `127.0.0.1:15002`, respectivamente. Substitua os exemplos pelo domínio real; não publique as portas HTTP da aplicação nem a porta do MySQL diretamente na Internet.
+4. Mantenha `GAME_SERVER_UDP_BIND_ADDRESS=127.0.0.1` até que o firewall da rede/provedor permita uma regra de entrada UDP para `9050` e `9051` somente a partir dos endereços dos clientes de teste. Depois de confirmar a regra, altere esse valor para `0.0.0.0`. O Docker pode contornar regras UFW convencionais para portas publicadas; prefira o firewall do provedor, anterior ao host, e verifique a regra antes de liberar o UDP. O protocolo UDP atual é de protótipo e não deve ficar aberto a qualquer origem.
+5. Valide a configuração e inicie somente o banco, as APIs e os servidores de jogo (o portal `web` não é iniciado):
+
+   ```bash
+   docker compose --env-file .env.production config --quiet
+   docker compose --env-file .env.production up --build -d mysql auth-api massive-server coop-server
+   docker compose --env-file .env.production ps
+   docker compose --env-file .env.production logs --tail=100 migrations auth-api massive-server coop-server
+   ```
+
+   Faça backup do volume `mysql_data` antes de atualizar a stack. Para parar os containers sem apagar os dados, use `docker compose --env-file .env.production down` — não acrescente `-v`.
+6. No componente `MassiveOnlineMenu` da cena Unity, configure `authApiBaseUrl`, `massiveServerApiBaseUrl` e `coopServerApiBaseUrl` com as URLs HTTPS reais configuradas no proxy. Os endereços UDP anunciados pelos servidores vêm de `GAME_SERVER_PUBLIC_ADDRESS` e `COOP_GAME_SERVER_PUBLIC_ADDRESS`.
+
+O proxy HTTPS atende somente as APIs HTTP; ele não encaminha UDP. Para uma beta pública, primeiro proteja e teste o transporte UDP e prepare mitigação contra abuso e negação de serviço. A fila atual e o estado das partidas ficam em memória em um processo por modo, e o relay gera tráfego proporcional ao número de jogadores; não há escala horizontal automática.
+
 ## Configuração da API
 
 A API exige uma connection string e uma chave de assinatura JWT via configuração do .NET. Exemplo no PowerShell:
@@ -69,9 +91,23 @@ O Compose executa os modos em processos isolados:
 - Massive: HTTP `http://localhost:5001`, UDP `9050`, aceita de 1 a 50 jogadores. Por padrão, uma partida solo começa sem atraso.
 - Coop: HTTP `http://localhost:5002`, UDP `9051`, aceita de 1 a 4 jogadores. Aguarda 2 segundos depois que o mínimo é alcançado para reunir jogadores que chegaram juntos; depois inicia mesmo com apenas um.
 
+Para acompanhar os logs de rede em tempo real, abra um PowerShell na pasta do servidor e execute:
+
+```powershell
+docker compose logs -f --since 5m massive-server
+```
+
+Para o modo Coop, troque `massive-server` por `coop-server`. `Ctrl+C` encerra apenas a visualização dos logs, não o servidor. O modelo de produção usa nível `Information`; para diagnosticar temporariamente a rejeição de pacotes, defina `GAME_SERVER_LOG_LEVEL=Debug` em `.env.production` e recrie os serviços de jogo. Depois do diagnóstico, retorne para `Information`. Tickets e tokens não são registrados.
+
 `MASSIVE_MIN_PLAYERS` define o mínimo do Massive e aceita valores de 1 a 50. `COOP_MIN_PLAYERS` define o mínimo do Coop (1 a 4); use `COOP_MIN_PLAYERS=2` se quiser exigir pelo menos dois jogadores. `COOP_MAX_PLAYERS` pode reduzir a capacidade, mas não ultrapassar quatro. `COOP_MATCH_START_DELAY_SECONDS` configura a janela de agrupamento (0 a 30 segundos). Os dois modos têm fila e estado em memória separados.
 
-O protocolo de exemplo somente aceita o `connectionTicket` e responde `ping` com `pong`; não implementa simulação, movimentação, dano, física, reconexão ou condições de vitória. Pontuações e recompensas ainda não podem ser recebidas do cliente.
+O limite de 50 jogadores é por partida, não por processo: a fila pode separar grupos maiores em várias partidas, mas elas ainda são alocadas pelo mesmo processo e endereço UDP. O Compose não cria instâncias automaticamente.
+
+O cliente Unity usa o `connectionTicket` para conectar por UDP, confirma o handshake de jogo e envia snapshots visuais de posição e animação. O servidor retransmite esses dados aos demais jogadores da mesma partida, mas não simula movimento, dano ou física, nem implementa reconexão ou condições de vitória. Pontuações e recompensas ainda não podem ser recebidas do cliente.
+
+Configure `authApiBaseUrl` no componente `MassiveOnlineMenu` para o endereço da Auth API. No WebGL, `CheckWebSession` usa a origem da página e requer o portal no mesmo domínio.
+
+Para escalar horizontalmente será necessário separar o coordenador de matchmaking dos servidores de partida, manter fila/tickets em armazenamento compartilhado e adicionar registro/health-check e alocação de instâncias por um orquestrador. Isso não está ativado nesta versão; escolher Docker Swarm, Kubernetes ou um provedor de nuvem depende do ambiente de deploy.
 
 Os valores de tamanho de fila, atraso de agrupamento, endereço e portas são configuráveis pelo `.env` usando as variáveis `MASSIVE_*` e `COOP_*`. Os arquivos [Matchmaking.http](./src/Games.MassiveServer/Matchmaking.http) e [Matchmaking.http do Coop](./src/Games.CoopServer/Matchmaking.http) mostram como chamar as rotas; o payload inicial UDP é a string `connectionTicket` enviada pelo cliente LiteNetLib.
 

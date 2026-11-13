@@ -12,3 +12,5 @@ Protótipo do portal em Next.js App Router, React e TypeScript. O Next funciona 
 `AUTH_API_BASE_URL` é uma variável apenas do servidor Next. Ela aponta para a Auth API, por padrão em `http://localhost:5000`. O backend precisa estar configurado com `ConnectionStrings__Platform` e `Jwt__Issuer`, `Jwt__Audience` e `Jwt__SigningKeyBase64`.
 
 O protótipo oferece cadastro, login, consulta do perfil autenticado e logout. A rota de sessão renova automaticamente o access token usando o refresh token. Nenhum token é salvo em `localStorage` ou exposto ao código JavaScript do navegador.
+
+O cliente Unity WebGL deve ser hospedado na mesma origem do portal. Assim, ele reutiliza a sessão HttpOnly da plataforma. As rotas `/api/matchmaking/massive/tickets` fazem proxy do matchmaking no servidor Next e não entregam o JWT ao jogo. Em Docker, `MASSIVE_API_BASE_URL` já aponta para o serviço `massive-server`; fora do Compose, pode ser configurada no ambiente do Next (o padrão local é `http://localhost:5001`).

@@ -17,6 +17,9 @@ public sealed class MatchmakingOptions
     /// <summary>Gets or sets the maximum number of players assigned to one match.</summary>
     public int MaxPlayers { get; set; } = 50;
 
+    /// <summary>Gets or sets whether players join an existing match until it reaches capacity.</summary>
+    public bool PersistentWorld { get; set; }
+
     /// <summary>Gets or sets how long to collect additional players after the minimum is reached.</summary>
     public int MatchStartDelaySeconds { get; set; }
 

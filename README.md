@@ -41,7 +41,20 @@ Docker e PM2 podem coexistir: os containers não interrompem os processos PM2, d
    docker compose --env-file .env.production logs --tail=100 migrations auth-api massive-server coop-server
    ```
 
-   Faça backup do volume `mysql_data` antes de atualizar a stack. Para parar os containers sem apagar os dados, use `docker compose --env-file .env.production down` — não acrescente `-v`.
+   A Auth API mantém o key ring do ASP.NET Data Protection no volume Docker `plataforma_auth_api_data_protection_keys`. Em uma stack já existente, antes da primeira recriação da Auth API com esta configuração, copie as chaves do container atual para esse volume:
+
+   ```bash
+   set -o pipefail
+   AUTH_CONTAINER=$(docker compose --env-file .env.production ps -q auth-api)
+   test -n "$AUTH_CONTAINER" || { echo "Auth API container not found"; exit 1; }
+   AUTH_UID=$(docker exec "$AUTH_CONTAINER" id -u)
+   AUTH_GID=$(docker exec "$AUTH_CONTAINER" id -g)
+   docker volume create plataforma_auth_api_data_protection_keys
+   docker cp "$AUTH_CONTAINER":/home/app/.aspnet/DataProtection-Keys/. - |
+     docker run --rm -i -v plataforma_auth_api_data_protection_keys:/keys busybox sh -c "tar -C /keys -xf - && chown -R $AUTH_UID:$AUTH_GID /keys"
+   ```
+
+   O volume preserva as chaves ao recriar o container, mas não criptografa os arquivos no disco do servidor. Para parar os containers sem apagar os dados, use `docker compose --env-file .env.production down` — não acrescente `-v`.
 6. No componente `MassiveOnlineMenu` da cena Unity, configure `authApiBaseUrl`, `massiveServerApiBaseUrl` e `coopServerApiBaseUrl` com as URLs HTTPS reais configuradas no proxy. Os endereços UDP anunciados pelos servidores vêm de `GAME_SERVER_PUBLIC_ADDRESS` e `COOP_GAME_SERVER_PUBLIC_ADDRESS`.
 
 O proxy HTTPS atende somente as APIs HTTP; ele não encaminha UDP. Para uma beta pública, primeiro proteja e teste o transporte UDP e prepare mitigação contra abuso e negação de serviço. A fila atual e o estado das partidas ficam em memória em um processo por modo, e o relay gera tráfego proporcional ao número de jogadores; não há escala horizontal automática.

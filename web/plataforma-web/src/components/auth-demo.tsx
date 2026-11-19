@@ -58,6 +58,12 @@ export function AuthDemo() {
   const [apiStatus, setApiStatus] = useState<ApiStatus>("checking");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
+  const [isForgotPasswordSubmitting, setIsForgotPasswordSubmitting] = useState(false);
+  const [forgotPasswordError, setForgotPasswordError] = useState("");
+  const [forgotPasswordMessage, setForgotPasswordMessage] = useState("");
   const [isFriendManagerOpen, setIsFriendManagerOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -184,6 +190,50 @@ export function AuthDemo() {
       setFeedback("Não foi possível conectar à API. Verifique se o backend está ativo.", "error");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  function openForgotPasswordModal() {
+    setForgotPasswordEmail(loginEmail.trim());
+    setForgotPasswordError("");
+    setForgotPasswordMessage("");
+    setIsForgotPasswordOpen(true);
+  }
+
+  async function handleForgotPasswordSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsForgotPasswordSubmitting(true);
+    setForgotPasswordError("");
+    setForgotPasswordMessage("");
+
+    try {
+      const response = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotPasswordEmail.trim() }),
+      });
+
+      if (!response.ok) {
+        setForgotPasswordError(
+          response.status === 503
+            ? "A recuperação de senha está temporariamente indisponível. Tente novamente mais tarde."
+            : getErrorMessage(
+                await readProblem(response),
+                "Não foi possível solicitar a redefinição de senha.",
+              ),
+        );
+        return;
+      }
+
+      setForgotPasswordMessage(
+        "Se houver uma conta com esse e-mail, enviaremos um link para redefinir a senha. Verifique também a caixa de spam.",
+      );
+    } catch {
+      setForgotPasswordError(
+        "Não foi possível conectar à plataforma. Tente novamente mais tarde.",
+      );
+    } finally {
+      setIsForgotPasswordSubmitting(false);
     }
   }
 
@@ -478,9 +528,11 @@ export function AuthDemo() {
                       autoComplete="email"
                       className="form-input"
                       name="email"
+                      onChange={(event) => setLoginEmail(event.currentTarget.value)}
                       placeholder="voce@exemplo.com"
                       required
                       type="email"
+                      value={loginEmail}
                     />
                   </label>
 
@@ -501,6 +553,16 @@ export function AuthDemo() {
                       type="password"
                     />
                   </label>
+
+                  {mode === "login" && (
+                    <button
+                      className="text-button forgot-password-trigger"
+                      onClick={openForgotPasswordModal}
+                      type="button"
+                    >
+                      Esqueceu sua senha?
+                    </button>
+                  )}
 
                   {message && (
                     <p className={`form-message ${messageType}`} role="status">
@@ -541,6 +603,79 @@ export function AuthDemo() {
           </section>
         )}
       </main>
+
+      {isForgotPasswordOpen && (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target) {
+              setIsForgotPasswordOpen(false);
+            }
+          }}
+        >
+          <section
+            aria-labelledby="forgot-password-title"
+            aria-modal="true"
+            className="password-reset-dialog"
+            role="dialog"
+          >
+            <div className="password-reset-dialog-heading">
+              <div>
+                <span className="profile-modal-eyebrow">RECUPERAÇÃO DE CONTA</span>
+                <h2 className="password-reset-dialog-title" id="forgot-password-title">
+                  Redefinir senha
+                </h2>
+              </div>
+              <button
+                aria-label="Fechar"
+                className="modal-close"
+                onClick={() => setIsForgotPasswordOpen(false)}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+            <p className="password-reset-dialog-copy">
+              Informe o e-mail da conta. Se ela existir, enviaremos um link para você criar uma
+              nova senha.
+            </p>
+            <form className="auth-form" onSubmit={handleForgotPasswordSubmit}>
+              <label className="field">
+                <span className="form-label">E-mail</span>
+                <input
+                  autoComplete="email"
+                  autoFocus
+                  className="form-input"
+                  maxLength={256}
+                  onChange={(event) => setForgotPasswordEmail(event.currentTarget.value)}
+                  placeholder="voce@exemplo.com"
+                  required
+                  type="email"
+                  value={forgotPasswordEmail}
+                />
+              </label>
+              {forgotPasswordError && (
+                <p className="form-message error" role="alert">
+                  {forgotPasswordError}
+                </p>
+              )}
+              {forgotPasswordMessage && (
+                <p className="form-message success" role="status">
+                  {forgotPasswordMessage}
+                </p>
+              )}
+              <button
+                className="primary-button"
+                disabled={isForgotPasswordSubmitting}
+                type="submit"
+              >
+                {isForgotPasswordSubmitting ? "Enviando..." : "Enviar link de redefinição"}
+              </button>
+            </form>
+          </section>
+        </div>
+      )}
 
       {isProfileModalOpen && user && (
         <div

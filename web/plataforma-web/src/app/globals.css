@@ -425,6 +425,11 @@ button:disabled {
   text-decoration: underline;
 }
 
+.forgot-password-trigger {
+  justify-self: end;
+  padding-right: 0;
+}
+
 .security-note {
   border-top: 1px solid var(--line);
   color: #858a95;
@@ -595,6 +600,42 @@ button:disabled {
   overflow: auto;
   padding: clamp(20px, 4vw, 32px);
   width: 100%;
+}
+
+.password-reset-dialog {
+  background: linear-gradient(145deg, #171a22, #0f1117);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 20px;
+  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.6);
+  max-height: min(620px, 90vh);
+  max-width: 460px;
+  overflow: auto;
+  padding: clamp(20px, 4vw, 32px);
+  width: 100%;
+}
+
+.password-reset-dialog-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+}
+
+.password-reset-dialog-title {
+  font-size: 25px;
+  letter-spacing: -0.8px;
+  margin: 10px 0 0;
+}
+
+.password-reset-dialog-copy {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.65;
+  margin: 14px 0 0;
+}
+
+.password-reset-dialog .auth-form {
+  margin-top: 20px;
 }
 
 .friends-dialog-heading {

@@ -172,6 +172,8 @@ Refresh tokens são aleatórios, armazenados somente como hash SHA-256 e rotacio
 
 O protótipo em `web/plataforma-web` usa Next.js App Router e React. O Next age como Backend for Frontend para a Auth API: tokens ficam em cookies `HttpOnly`, e o browser não precisa acessar a API de identidade diretamente nem armazenar JWT no `localStorage`.
 
+Na tela de login, “Esqueceu sua senha?” abre um modal para solicitar o link por e-mail. O link leva à página `/redefinir-senha`, onde o token expira em 30 minutos.
+
 Com a Auth API ativa na porta `5000`, abra outro terminal PowerShell:
 
 ```powershell

@@ -19,3 +19,13 @@ public sealed record AuthTokensResponse(
 /// Public details for the authenticated account.
 /// </summary>
 public sealed record CurrentUserResponse(Guid UserId, string Email);
+
+/// <summary>
+/// Generic response returned after a password reset request.
+/// </summary>
+public sealed record PasswordResetRequestedResponse(string Message);
+
+/// <summary>
+/// Confirmation returned after a password has been reset.
+/// </summary>
+public sealed record PasswordResetResponse(string Message);

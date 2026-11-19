@@ -237,6 +237,26 @@ button:disabled {
   padding: 31px;
 }
 
+.reset-layout {
+  align-items: center;
+  display: grid;
+  margin: 0 auto;
+  max-width: 460px;
+  min-height: calc(100vh - 202px);
+}
+
+.reset-card {
+  width: 100%;
+}
+
+.reset-title {
+  margin-top: 22px;
+}
+
+.reset-message {
+  margin-top: 24px;
+}
+
 .card-heading {
   justify-content: space-between;
 }
@@ -380,6 +400,15 @@ button:disabled {
   font-size: 12px;
   margin: 19px 0 0;
   text-align: center;
+}
+
+.auth-switch a {
+  color: var(--lime);
+  text-decoration: none;
+}
+
+.auth-switch a:hover {
+  text-decoration: underline;
 }
 
 .text-button {

@@ -1,7 +1,15 @@
+using System.IO;
+using System.Net.Sockets;
+using System.Security.Authentication;
+using System.Text;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using MailKit.Net.Smtp;
+using Plataforma.AuthApi.Configuration;
 using Plataforma.AuthApi.Contracts;
 using Plataforma.AuthApi.Services;
 using Plataforma.Database.Identity;
@@ -56,6 +64,23 @@ public static class AuthEndpoints
             .Accepts<RefreshTokenRequest>("application/json")
             .Produces(StatusCodes.Status204NoContent)
             .ProducesValidationProblem();
+
+        group.MapPost("/forgot-password", RequestPasswordResetAsync)
+            .WithName("RequestPasswordReset")
+            .WithSummary("Request a password reset email")
+            .WithDescription("Returns a generic response so account existence is not disclosed.")
+            .Accepts<ForgotPasswordRequest>("application/json")
+            .Produces<PasswordResetRequestedResponse>(StatusCodes.Status202Accepted)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+        group.MapPost("/reset-password", ResetPasswordAsync)
+            .WithName("ResetPassword")
+            .WithSummary("Set a new password with a reset token")
+            .Accepts<ResetPasswordRequest>("application/json")
+            .Produces<PasswordResetResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status400BadRequest);
 
         group.MapGet("/me", GetCurrentUser)
             .WithName("GetCurrentUser")
@@ -230,6 +255,148 @@ public static class AuthEndpoints
         await tokenService.RevokeRefreshTokenAsync(request.RefreshToken, cancellationToken);
         return Results.NoContent();
     }
+
+    private static async Task<IResult> RequestPasswordResetAsync(
+        ForgotPasswordRequest? request,
+        UserManager<ApplicationUser> userManager,
+        IPasswordResetEmailSender emailSender,
+        IOptions<PasswordResetOptions> passwordResetOptions,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        if (request is null)
+        {
+            return MissingRequestBody();
+        }
+
+        var validationErrors = EndpointRequestValidation.Validate(request);
+        if (validationErrors.Count > 0)
+        {
+            return Results.ValidationProblem(validationErrors);
+        }
+
+        if (!emailSender.IsConfigured
+            || !TryGetPasswordResetPageUrl(passwordResetOptions.Value.PublicUrl, out var resetPageUrl))
+        {
+            return Results.Problem(
+                title: "Password reset email delivery is not configured.",
+                statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+
+        var user = await userManager.FindByEmailAsync(request.Email.Trim());
+        if (user is null || string.IsNullOrWhiteSpace(user.Email))
+        {
+            return PasswordResetRequested();
+        }
+
+        var token = await userManager.GeneratePasswordResetTokenAsync(user);
+        var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+        var resetUrl = QueryHelpers.AddQueryString(
+            resetPageUrl,
+            new Dictionary<string, string?>
+            {
+                ["email"] = user.Email,
+                ["token"] = encodedToken
+            });
+
+        var logger = loggerFactory.CreateLogger("Plataforma.AuthApi.PasswordReset");
+        try
+        {
+            await emailSender.SendPasswordResetAsync(user.Email, resetUrl, cancellationToken);
+        }
+        catch (Exception exception) when (
+            exception is SmtpCommandException
+                or SmtpProtocolException
+                or IOException
+                or SocketException
+                or AuthenticationException
+                or MailKit.Security.AuthenticationException)
+        {
+            logger.LogError(exception, "Password reset email delivery failed.");
+        }
+
+        return PasswordResetRequested();
+    }
+
+    private static async Task<IResult> ResetPasswordAsync(
+        ResetPasswordRequest? request,
+        UserManager<ApplicationUser> userManager,
+        ITokenService tokenService,
+        CancellationToken cancellationToken)
+    {
+        if (request is null)
+        {
+            return MissingRequestBody();
+        }
+
+        var validationErrors = EndpointRequestValidation.Validate(request);
+        if (validationErrors.Count > 0)
+        {
+            return Results.ValidationProblem(validationErrors);
+        }
+
+        var user = await userManager.FindByEmailAsync(request.Email.Trim());
+        if (user is null)
+        {
+            return InvalidPasswordResetToken();
+        }
+
+        string token;
+        try
+        {
+            token = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(request.Token));
+        }
+        catch (FormatException)
+        {
+            return InvalidPasswordResetToken();
+        }
+
+        var result = await userManager.ResetPasswordAsync(user, token, request.NewPassword);
+        if (result.Succeeded)
+        {
+            await tokenService.RevokeAllRefreshTokensAsync(user.Id, cancellationToken);
+            return Results.Ok(new PasswordResetResponse("Your password has been reset."));
+        }
+
+        if (result.Errors.Any(error => error.Code == "InvalidToken"))
+        {
+            return InvalidPasswordResetToken();
+        }
+
+        var identityErrors = result.Errors
+            .GroupBy(error => error.Code)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Select(error => error.Description).ToArray());
+        return Results.ValidationProblem(identityErrors);
+    }
+
+    private static IResult PasswordResetRequested() =>
+        Results.Json(
+            new PasswordResetRequestedResponse(
+                "If an account exists for this email, a password reset link will be sent."),
+            statusCode: StatusCodes.Status202Accepted);
+
+    private static bool TryGetPasswordResetPageUrl(string configuredUrl, out string resetPageUrl)
+    {
+        resetPageUrl = string.Empty;
+        if (!Uri.TryCreate(configuredUrl, UriKind.Absolute, out var uri)
+            || uri.Scheme != Uri.UriSchemeHttps
+            || !string.IsNullOrEmpty(uri.UserInfo)
+            || !string.IsNullOrEmpty(uri.Query)
+            || !string.IsNullOrEmpty(uri.Fragment))
+        {
+            return false;
+        }
+
+        resetPageUrl = uri.AbsoluteUri;
+        return true;
+    }
+
+    private static IResult InvalidPasswordResetToken() =>
+        Results.Problem(
+            title: "The password reset link is invalid or has expired.",
+            statusCode: StatusCodes.Status400BadRequest);
 
     private static IResult GetCurrentUser(ClaimsPrincipal principal)
     {

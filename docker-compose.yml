@@ -39,6 +39,13 @@ services:
       Jwt__Issuer: ${JWT_ISSUER:-plataforma-auth}
       Jwt__Audience: ${JWT_AUDIENCE:-plataforma-games}
       Jwt__SigningKeyBase64: ${JWT_SIGNING_KEY_BASE64:?Configure JWT_SIGNING_KEY_BASE64 in .env}
+      Email__Host: ${EMAIL_SMTP_HOST:-}
+      Email__Port: ${EMAIL_SMTP_PORT:-587}
+      Email__Username: ${EMAIL_SMTP_USERNAME:-}
+      Email__Password: ${EMAIL_SMTP_PASSWORD:-}
+      Email__FromAddress: ${EMAIL_FROM_ADDRESS:-}
+      Email__FromName: ${EMAIL_FROM_NAME:-Plataforma}
+      PasswordReset__PublicUrl: ${PASSWORD_RESET_PUBLIC_URL:-}
       GameDelivery__SandboxTestModeEnabled: ${GAME_DELIVERY_SANDBOX_TEST_MODE_ENABLED:-false}
       GameDelivery__CdnBaseUrl: ${BUNNY_CDN_BASE_URL:-}
       GameDelivery__CdnTokenAuthKey: ${BUNNY_CDN_TOKEN_AUTH_KEY:-}

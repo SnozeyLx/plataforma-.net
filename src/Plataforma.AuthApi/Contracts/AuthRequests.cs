@@ -23,3 +23,17 @@ public sealed record LoginRequest(
 /// </summary>
 public sealed record RefreshTokenRequest(
     [property: Required, StringLength(256, MinimumLength = 32)] string RefreshToken);
+
+/// <summary>
+/// Requests a password reset email for an account.
+/// </summary>
+public sealed record ForgotPasswordRequest(
+    [property: Required, EmailAddress, StringLength(256)] string Email);
+
+/// <summary>
+/// Submits a password reset token and the replacement password.
+/// </summary>
+public sealed record ResetPasswordRequest(
+    [property: Required, EmailAddress, StringLength(256)] string Email,
+    [property: Required, StringLength(2048, MinimumLength = 1)] string Token,
+    [property: Required, MinLength(12), MaxLength(128)] string NewPassword);

@@ -35,4 +35,12 @@ public interface ITokenService
     /// <param name="cancellationToken">The request cancellation token.</param>
     /// <returns>A task that completes when revocation has been processed.</returns>
     Task RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Revokes all active refresh tokens issued to an account.
+    /// </summary>
+    /// <param name="userId">The account whose sessions should be revoked.</param>
+    /// <param name="cancellationToken">The request cancellation token.</param>
+    /// <returns>A task that completes when revocation has been processed.</returns>
+    Task RevokeAllRefreshTokensAsync(Guid userId, CancellationToken cancellationToken);
 }

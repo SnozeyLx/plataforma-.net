@@ -117,6 +117,21 @@ public sealed class TokenService(
         }
     }
 
+    /// <inheritdoc />
+    public async Task RevokeAllRefreshTokensAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var revokedAtUtc = timeProvider.GetUtcNow().UtcDateTime;
+        await dbContext.RefreshTokens
+            .Where(token => token.UserId == userId && token.RevokedAtUtc == null)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(token => token.RevokedAtUtc, revokedAtUtc)
+                    .SetProperty(token => token.ConcurrencyStamp, Guid.NewGuid().ToString("N")),
+                cancellationToken);
+    }
+
     private async Task RevokeFamilyAsync(
         Guid familyId,
         DateTime revokedAtUtc,

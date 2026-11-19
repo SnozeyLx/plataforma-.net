@@ -1,0 +1,11 @@
+@baseUrl = http://localhost:5000
+@accessToken = paste-a-local-access-token
+@friendUserId = 00000000-0000-0000-0000-000000000000
+
+### Get the latest messages with a confirmed friend
+GET {{baseUrl}}/api/chat/conversations/{{friendUserId}}/messages?page=1&pageSize=50
+Authorization: Bearer {{accessToken}}
+
+### Load the next page of older messages
+GET {{baseUrl}}/api/chat/conversations/{{friendUserId}}/messages?page=2&pageSize=50
+Authorization: Bearer {{accessToken}}

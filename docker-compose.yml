@@ -39,6 +39,14 @@ services:
       Jwt__Issuer: ${JWT_ISSUER:-plataforma-auth}
       Jwt__Audience: ${JWT_AUDIENCE:-plataforma-games}
       Jwt__SigningKeyBase64: ${JWT_SIGNING_KEY_BASE64:?Configure JWT_SIGNING_KEY_BASE64 in .env}
+      GameDelivery__SandboxTestModeEnabled: ${GAME_DELIVERY_SANDBOX_TEST_MODE_ENABLED:-false}
+      GameDelivery__CdnBaseUrl: ${BUNNY_CDN_BASE_URL:-}
+      GameDelivery__CdnTokenAuthKey: ${BUNNY_CDN_TOKEN_AUTH_KEY:-}
+      GameDelivery__TokenLifetimeSeconds: ${GAME_DELIVERY_TOKEN_LIFETIME_SECONDS:-600}
+      GameDelivery__LauncherWindowsObjectPath: ${PLATFORM_LAUNCHER_WINDOWS_OBJECT_PATH:-}
+      GameDelivery__Builds__dash-and-crash__WindowsObjectPath: ${DASH_AND_CRASH_WINDOWS_OBJECT_PATH:-}
+      GameDelivery__Builds__dash-and-crash__WebGlDirectoryPath: ${DASH_AND_CRASH_WEBGL_DIRECTORY_PATH:-}
+      GameDelivery__Builds__dash-and-crash__WebGlEntryPoint: ${DASH_AND_CRASH_WEBGL_ENTRY_POINT:-index.html}
     depends_on:
       migrations:
         condition: service_completed_successfully

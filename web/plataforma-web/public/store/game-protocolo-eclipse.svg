@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675">
+  <defs>
+    <linearGradient id="eclipse" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#140f2d"/>
+      <stop offset=".48" stop-color="#3b285e"/>
+      <stop offset="1" stop-color="#0b707b"/>
+    </linearGradient>
+    <radialGradient id="moon">
+      <stop stop-color="#ffdfc5"/>
+      <stop offset=".8" stop-color="#ea71b6"/>
+      <stop offset="1" stop-color="#8d4a9b"/>
+    </radialGradient>
+  </defs>
+  <path fill="url(#eclipse)" d="M0 0h1200v675H0z"/>
+  <circle cx="844" cy="250" r="178" fill="url(#moon)"/>
+  <circle cx="844" cy="250" r="199" fill="none" stroke="#83f5ef" stroke-opacity=".45" stroke-width="3"/>
+  <path d="M0 533 220 414l141 78 165-206 157 226 123-95 119 95 160-129 115 119v173H0z" fill="#111629" opacity=".92"/>
+  <path d="m410 414 102-56 51 24-23 95-134 41-46-39z" fill="#202c47"/>
+  <path d="m454 402 52-103 53 73 43 112-66 35-60-69z" fill="#9cf5ef" opacity=".88"/>
+  <path d="m487 315 19-87 38 62-18 83z" fill="#f3a5dc"/>
+  <path d="M72 554h1055" stroke="#8ef8ed" stroke-opacity=".35" stroke-width="2"/>
+  <text fill="#b8fff6" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700" letter-spacing="7" x="72" y="91">AÇÃO TÁTICA • SCI-FI</text>
+  <text fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="57" font-weight="800" letter-spacing="2" x="72" y="158">PROTOCOLO ECLIPSE</text>
+</svg>

@@ -167,6 +167,28 @@ npm run dev
 
 Abra `http://localhost:3000` para criar uma conta, entrar e consultar o perfil. `AUTH_API_BASE_URL` é lida somente pelo servidor Next e pode apontar para outra URL se a API estiver em endereço diferente. Em produção, use HTTPS para que os cookies sejam enviados com o atributo `Secure`.
 
+## Loja demonstrativa
+
+`http://localhost:3000/loja` apresenta um catálogo visual com jogos e itens fictícios, busca, filtros por gênero e uma sacola temporária no navegador. Não há checkout real, cobrança, persistência de pedidos ou concessão de jogos/itens às contas; os dados e preços servem somente para testar a interface.
+
+A logo temporária está em `web/plataforma-web/public/logo_teste.svg`; ela é usada nos cabeçalhos e como favicon. Substitua esse arquivo pela logo oficial quando estiver disponível.
+
+As páginas `http://localhost:3000/jogos/{slug}` demonstram a experiência de jogo. Dash & Crash consulta a biblioteca da API e solicita links temporários para os builds; os outros títulos ainda usam dados locais de demonstração.
+
+## Propriedade e entrega segura de builds
+
+A migration `AddGameEntitlements` cria propriedade persistente e cadastra `dash-and-crash`. A API autenticada expõe `GET /api/library` e `GET /api/games/{slug}/access?platform=windows|webgl`; o endpoint `GET /api/launcher/windows/access` é público para permitir baixar o cliente antes do login. O acesso aos builds de jogo verifica o entitlement. Quando o artefato está configurado, a API emite uma URL temporária HMAC-SHA256 da Bunny CDN. O modo sandbox concede o jogo de teste sob demanda a cada conta autenticada, sem checkout, saldo ou compra simulada.
+
+Para validar localmente, copie os campos de entrega para `.env` e use `GAME_DELIVERY_SANDBOX_TEST_MODE_ENABLED=true` somente no ambiente local de teste. Em produção o valor deve permanecer `false`. Configure Token Authentication na Pull Zone e guarde sua chave em `BUNNY_CDN_TOKEN_AUTH_KEY`; configure também `BUNNY_CDN_BASE_URL` com a URL HTTPS da Pull Zone. Preencha `PLATFORM_LAUNCHER_WINDOWS_OBJECT_PATH` com a chave completa do ZIP do launcher, `DASH_AND_CRASH_WINDOWS_OBJECT_PATH` com a chave do ZIP do jogo e `DASH_AND_CRASH_WEBGL_DIRECTORY_PATH` com o prefixo do build WebGL, sem barra inicial/final. `DASH_AND_CRASH_WEBGL_ENTRY_POINT` normalmente é `index.html`. Um caminho vazio mantém a respectiva opção indisponível.
+
+Essas configurações são entregues somente à Auth API via Docker Compose. O portal separa “Jogar no PC” de “Baixar instalador”: o primeiro abre `playlab://game/{slug}` e, se necessário, o launcher baixa o ZIP do jogo após validar a licença; o segundo baixa o instalador do launcher. Se o launcher não estiver instalado, a pessoa usa o instalador, que cria atalhos e registra o protocolo para o usuário atual. Se não houver build Windows publicada, o portal informa isso e mantém WebGL disponível quando configurado. Depois da instalação, a pessoa inicia o jogo pelo launcher, sem execução automática. Se o arquivo do jogo contiver mais de um executável além dos auxiliares conhecidos do Unity, a pessoa escolhe qual iniciar. O launcher e o portal recebem links CDN curtos, nunca a chave HMAC ou credenciais S3. Como o Bunny Storage é a origem da Pull Zone, as credenciais S3 não são necessárias para downloads; use-as somente em um processo protegido de publicação/upload, e nunca no cliente nem no repositório. As rotas e exemplos de chamadas estão em [GameDelivery.http](./src/Plataforma.AuthApi/GameDelivery.http).
+
+## Chat entre amigos
+
+O dashboard autenticado oferece um painel de conversa direta 1:1. Somente amizades aceitas podem abrir conversas; mensagens de texto de até 2000 caracteres são persistidas em `FriendMessages`. O histórico usa páginas de até 100 mensagens (`GET /api/chat/conversations/{friendUserId}/messages?page=1&pageSize=50`).
+
+O hub SignalR fica em `/api/chat/hub`. O frontend usa Long Polling pelo proxy Next (`/api/platform/chat/hub`) para manter os JWTs em cookies `HttpOnly`, sem expor tokens ao JavaScript. O hub valida a amizade ao entrar e novamente ao enviar cada mensagem. A migration `AddFriendChatMessages` é aplicada pelo serviço `migrations` no Compose; para executar manualmente, use `dotnet ef database update` conforme a seção de catálogo.
+
 ## Limitações antes de produção
 
 Esta primeira etapa não implementa confirmação de e-mail, recuperação de senha, limitação de tentativas por IP nem um proxy TLS. O matchmaking é de instância única e volátil. LiteNetLib ainda não está protegido por criptografia de aplicação; não publique a porta UDP nem use tickets de jogadores reais até projetar e validar confidencialidade, integridade e proteção contra replay para o transporte. Em produção, use HTTPS para login e matchmaking, proxy com certificados válidos, firewall restritivo, gestão segura de segredos e armazenamento distribuído se houver múltiplas réplicas. Credenciais de banco que já tenham sido expostas devem ser rotacionadas antes de staging.

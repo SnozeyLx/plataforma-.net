@@ -1,0 +1,84 @@
+@baseUrl = http://localhost:5000
+@token = replace-with-access-token
+@friendUserId = replace-with-player-id
+@requestId = replace-with-request-id
+
+### Register a second test account (gamertag must be unique)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "friend@example.test",
+  "password": "test-password-123",
+  "playerName": "friend_test"
+}
+
+### Get or claim the current player's public profile
+GET {{baseUrl}}/api/profile
+Authorization: Bearer {{token}}
+
+###
+PUT {{baseUrl}}/api/profile/player-name
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "playerName": "player_test"
+}
+
+### Search by a public gamertag prefix; email is never searched
+GET {{baseUrl}}/api/friends/search?q=friend
+Authorization: Bearer {{token}}
+
+### List confirmed friends
+GET {{baseUrl}}/api/friends
+Authorization: Bearer {{token}}
+
+### List incoming friend requests
+GET {{baseUrl}}/api/friends/requests/incoming
+Authorization: Bearer {{token}}
+
+### List outgoing friend requests
+GET {{baseUrl}}/api/friends/requests/outgoing
+Authorization: Bearer {{token}}
+
+### Send a friend request
+POST {{baseUrl}}/api/friends/requests
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "targetUserId": "{{friendUserId}}"
+}
+
+### Get a friend request
+GET {{baseUrl}}/api/friends/requests/{{requestId}}
+Authorization: Bearer {{token}}
+
+### Accept an incoming request
+POST {{baseUrl}}/api/friends/requests/{{requestId}}/accept
+Authorization: Bearer {{token}}
+
+### Decline an incoming request
+POST {{baseUrl}}/api/friends/requests/{{requestId}}/decline
+Authorization: Bearer {{token}}
+
+### Cancel an outgoing request
+DELETE {{baseUrl}}/api/friends/requests/{{requestId}}
+Authorization: Bearer {{token}}
+
+### Remove a confirmed friend
+DELETE {{baseUrl}}/api/friends/{{friendUserId}}
+Authorization: Bearer {{token}}
+
+### List blocked accounts
+GET {{baseUrl}}/api/friends/blocks
+Authorization: Bearer {{token}}
+
+### Block a player (also removes an existing friendship)
+PUT {{baseUrl}}/api/friends/blocks/{{friendUserId}}
+Authorization: Bearer {{token}}
+
+### Unblock a player
+DELETE {{baseUrl}}/api/friends/blocks/{{friendUserId}}
+Authorization: Bearer {{token}}

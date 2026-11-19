@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="675" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#161A2A"/>
+      <stop offset=".58" stop-color="#252C4A"/>
+      <stop offset="1" stop-color="#8D3A39"/>
+    </linearGradient>
+    <linearGradient id="track" x1="360" y1="370" x2="1040" y2="570" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFB351"/>
+      <stop offset="1" stop-color="#FF5C58"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#bg)" d="M0 0h1200v675H0z"/>
+  <circle cx="938" cy="147" r="152" fill="#F27162" fill-opacity=".12"/>
+  <circle cx="938" cy="147" r="96" fill="#F27162" fill-opacity=".1"/>
+  <path d="M0 535c206-93 363-154 553-148 192 6 335 101 647 17v271H0V535Z" fill="#111522" fill-opacity=".82"/>
+  <path d="M0 575c216-94 357-156 550-149 194 7 335 102 650 18" stroke="url(#track)" stroke-width="8" stroke-linecap="round"/>
+  <path d="M0 611c216-94 357-156 550-149 194 7 335 102 650 18" stroke="#E8EAF1" stroke-opacity=".35" stroke-width="2" stroke-dasharray="16 20"/>
+  <path d="m210 292 69-85 22 17-44 66 66 9-4 28-110-14 1-21Z" fill="#F2F4FF"/>
+  <path d="m296 301 53-89 27 16-33 62 65-1 1 28-108 4-5-20Z" fill="#FFB351"/>
+  <text x="84" y="406" fill="#F7F7FC" font-family="Arial,sans-serif" font-size="94" font-weight="800" letter-spacing="-5">DASH</text>
+  <text x="392" y="406" fill="#FFB351" font-family="Arial,sans-serif" font-size="94" font-weight="800">&amp;</text>
+  <text x="472" y="406" fill="#F7F7FC" font-family="Arial,sans-serif" font-size="94" font-weight="800" letter-spacing="-5">CRASH</text>
+  <text x="92" y="452" fill="#C5C9D7" font-family="Arial,sans-serif" font-size="20" font-weight="600" letter-spacing="5">CORRIDA · AÇÃO · COOPERAÇÃO</text>
+  <path d="m769 471 52-28 55 1 43 23-10 33H776l-7-29Z" fill="#F6F7FF"/>
+  <path d="m817 445 25-32h42l28 34-95-2Z" fill="#FFB351"/>
+  <circle cx="801" cy="500" r="20" fill="#111522" stroke="#AEB5C8" stroke-width="7"/>
+  <circle cx="899" cy="500" r="20" fill="#111522" stroke="#AEB5C8" stroke-width="7"/>
+  <path d="m1054 254 26-67 29 11-27 69 67-13 6 30-113 21-16-16 28-35Z" fill="#FF5C58"/>
+</svg>

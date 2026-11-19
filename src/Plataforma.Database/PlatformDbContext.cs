@@ -24,6 +24,11 @@ public sealed class PlatformDbContext(
     public DbSet<Game> Games => Set<Game>();
 
     /// <summary>
+    /// Gets persistent game ownership records.
+    /// </summary>
+    public DbSet<GameEntitlement> GameEntitlements => Set<GameEntitlement>();
+
+    /// <summary>
     /// Gets aggregate player progression for each game.
     /// </summary>
     public DbSet<GamePlayerProgress> GamePlayerProgress => Set<GamePlayerProgress>();
@@ -43,6 +48,21 @@ public sealed class PlatformDbContext(
     /// </summary>
     public DbSet<UserAchievementProgress> UserAchievementProgress => Set<UserAchievementProgress>();
 
+    /// <summary>
+    /// Gets pending friend requests and accepted friendships.
+    /// </summary>
+    public DbSet<FriendConnection> FriendConnections => Set<FriendConnection>();
+
+    /// <summary>
+    /// Gets one-way account blocks.
+    /// </summary>
+    public DbSet<UserBlock> UserBlocks => Set<UserBlock>();
+
+    /// <summary>
+    /// Gets direct messages exchanged by confirmed friends.
+    /// </summary>
+    public DbSet<FriendMessage> FriendMessages => Set<FriendMessage>();
+
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -51,6 +71,18 @@ public sealed class PlatformDbContext(
         builder.Entity<ApplicationUser>()
             .HasIndex(user => user.NormalizedEmail)
             .IsUnique();
+
+        builder.Entity<ApplicationUser>(entity =>
+        {
+            entity.Property(user => user.PlayerName)
+                .HasMaxLength(24);
+            entity.Property(user => user.NormalizedPlayerName)
+                .HasMaxLength(24);
+            entity.Property(user => user.ProfileIconId)
+                .HasDefaultValue(1);
+            entity.HasIndex(user => user.NormalizedPlayerName)
+                .IsUnique();
+        });
 
         builder.Entity<RefreshToken>(entity =>
         {
@@ -92,6 +124,23 @@ public sealed class PlatformDbContext(
                 .HasMaxLength(16)
                 .IsRequired();
             entity.HasIndex(game => new { game.Status, game.Name });
+        });
+
+        builder.Entity<GameEntitlement>(entity =>
+        {
+            entity.HasKey(entitlement => new { entitlement.UserId, entitlement.GameId });
+            entity.Property(entitlement => entitlement.GrantType)
+                .HasMaxLength(24)
+                .IsRequired();
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(entitlement => entitlement.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<Game>()
+                .WithMany()
+                .HasForeignKey(entitlement => entitlement.GameId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(entitlement => new { entitlement.GameId, entitlement.GrantedAtUtc });
         });
 
         builder.Entity<GamePlayerProgress>(entity =>
@@ -162,6 +211,79 @@ public sealed class PlatformDbContext(
                 .HasForeignKey(progress => progress.AchievementId)
                 .OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(progress => new { progress.AchievementId, progress.CompletedAtUtc });
+        });
+
+        builder.Entity<FriendConnection>(entity =>
+        {
+            entity.HasKey(connection => connection.Id);
+            entity.Property(connection => connection.Status)
+                .HasConversion<string>()
+                .HasMaxLength(16)
+                .IsRequired();
+            entity.HasIndex(connection => new { connection.LowerUserId, connection.UpperUserId })
+                .IsUnique();
+            entity.HasIndex(connection => new
+            {
+                connection.RecipientUserId,
+                connection.Status,
+                connection.CreatedAtUtc
+            });
+            entity.HasIndex(connection => new
+            {
+                connection.RequesterUserId,
+                connection.Status,
+                connection.CreatedAtUtc
+            });
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(connection => connection.RequesterUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(connection => connection.RecipientUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<UserBlock>(entity =>
+        {
+            entity.HasKey(block => new { block.BlockerUserId, block.BlockedUserId });
+            entity.HasIndex(block => block.BlockedUserId);
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(block => block.BlockerUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(block => block.BlockedUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<FriendMessage>(entity =>
+        {
+            entity.HasKey(message => message.Id);
+            entity.Property(message => message.Content)
+                .HasMaxLength(2000)
+                .IsRequired();
+            entity.HasIndex(message => new
+            {
+                message.SenderUserId,
+                message.RecipientUserId,
+                message.CreatedAtUtc
+            });
+            entity.HasIndex(message => new
+            {
+                message.RecipientUserId,
+                message.SenderUserId,
+                message.CreatedAtUtc
+            });
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(message => message.SenderUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(message => message.RecipientUserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

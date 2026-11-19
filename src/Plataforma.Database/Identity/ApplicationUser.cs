@@ -7,4 +7,9 @@ namespace Plataforma.Database.Identity;
 /// </summary>
 public sealed class ApplicationUser : IdentityUser<Guid>
 {
+    public string? PlayerName { get; set; }
+
+    public string? NormalizedPlayerName { get; set; }
+
+    public int ProfileIconId { get; set; } = 1;
 }

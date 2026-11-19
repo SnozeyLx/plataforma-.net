@@ -1,0 +1,21 @@
+@baseUrl = http://localhost:5000
+@accessToken = replace-with-a-valid-access-token
+
+### Get the authenticated player's library
+GET {{baseUrl}}/api/library
+Authorization: Bearer {{accessToken}}
+
+### Get a temporary Windows download URL for an owned game
+GET {{baseUrl}}/api/games/dash-and-crash/access?platform=windows
+Authorization: Bearer {{accessToken}}
+
+### Get a temporary WebGL URL for an owned game
+GET {{baseUrl}}/api/games/dash-and-crash/access?platform=webgl
+Authorization: Bearer {{accessToken}}
+
+### Get a temporary download URL for the Windows platform launcher
+GET {{baseUrl}}/api/launcher/windows/access
+
+### Verify an unsupported platform is rejected
+GET {{baseUrl}}/api/games/dash-and-crash/access?platform=android
+Authorization: Bearer {{accessToken}}

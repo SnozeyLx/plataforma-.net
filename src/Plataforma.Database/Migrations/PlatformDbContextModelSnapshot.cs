@@ -145,6 +145,76 @@ namespace Plataforma.Database.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Plataforma.Database.Entities.FriendConnection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("LowerUserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("RecipientUserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("RequesterUserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("RespondedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.Property<Guid>("UpperUserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LowerUserId", "UpperUserId")
+                        .IsUnique();
+
+                    b.HasIndex("RecipientUserId", "Status", "CreatedAtUtc");
+
+                    b.HasIndex("RequesterUserId", "Status", "CreatedAtUtc");
+
+                    b.ToTable("FriendConnections");
+                });
+
+            modelBuilder.Entity("Plataforma.Database.Entities.FriendMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("RecipientUserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("SenderUserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecipientUserId", "SenderUserId", "CreatedAtUtc");
+
+                    b.HasIndex("SenderUserId", "RecipientUserId", "CreatedAtUtc");
+
+                    b.ToTable("FriendMessages");
+                });
+
             modelBuilder.Entity("Plataforma.Database.Entities.Game", b =>
                 {
                     b.Property<Guid>("Id")
@@ -238,6 +308,29 @@ namespace Plataforma.Database.Migrations
                     b.HasIndex("GameId", "Status");
 
                     b.ToTable("GameAchievements");
+                });
+
+            modelBuilder.Entity("Plataforma.Database.Entities.GameEntitlement", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("GameId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("GrantType")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("varchar(24)");
+
+                    b.Property<DateTime>("GrantedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("UserId", "GameId");
+
+                    b.HasIndex("GameId", "GrantedAtUtc");
+
+                    b.ToTable("GameEntitlements");
                 });
 
             modelBuilder.Entity("Plataforma.Database.Entities.GamePlayerProgress", b =>
@@ -387,6 +480,24 @@ namespace Plataforma.Database.Migrations
                     b.ToTable("UserAchievementProgress");
                 });
 
+            modelBuilder.Entity("Plataforma.Database.Entities.UserBlock", b =>
+                {
+                    b.Property<Guid>("BlockerUserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("BlockedUserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("BlockerUserId", "BlockedUserId");
+
+                    b.HasIndex("BlockedUserId");
+
+                    b.ToTable("UserBlocks");
+                });
+
             modelBuilder.Entity("Plataforma.Database.Identity.ApplicationUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -417,6 +528,10 @@ namespace Plataforma.Database.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
 
+                    b.Property<string>("NormalizedPlayerName")
+                        .HasMaxLength(24)
+                        .HasColumnType("varchar(24)");
+
                     b.Property<string>("NormalizedUserName")
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
@@ -429,6 +544,15 @@ namespace Plataforma.Database.Migrations
 
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("PlayerName")
+                        .HasMaxLength(24)
+                        .HasColumnType("varchar(24)");
+
+                    b.Property<int>("ProfileIconId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
 
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("longtext");
@@ -445,6 +569,9 @@ namespace Plataforma.Database.Migrations
                     b.HasIndex("NormalizedEmail")
                         .IsUnique()
                         .HasDatabaseName("EmailIndex");
+
+                    b.HasIndex("NormalizedPlayerName")
+                        .IsUnique();
 
                     b.HasIndex("NormalizedUserName")
                         .IsUnique()
@@ -504,12 +631,57 @@ namespace Plataforma.Database.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Plataforma.Database.Entities.FriendConnection", b =>
+                {
+                    b.HasOne("Plataforma.Database.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RecipientUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Plataforma.Database.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RequesterUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Plataforma.Database.Entities.FriendMessage", b =>
+                {
+                    b.HasOne("Plataforma.Database.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RecipientUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Plataforma.Database.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("SenderUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Plataforma.Database.Entities.GameAchievement", b =>
                 {
                     b.HasOne("Plataforma.Database.Entities.Game", null)
                         .WithMany()
                         .HasForeignKey("GameId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Plataforma.Database.Entities.GameEntitlement", b =>
+                {
+                    b.HasOne("Plataforma.Database.Entities.Game", null)
+                        .WithMany()
+                        .HasForeignKey("GameId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Plataforma.Database.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
@@ -559,6 +731,21 @@ namespace Plataforma.Database.Migrations
                     b.HasOne("Plataforma.Database.Identity.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Plataforma.Database.Entities.UserBlock", b =>
+                {
+                    b.HasOne("Plataforma.Database.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("BlockedUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Plataforma.Database.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("BlockerUserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

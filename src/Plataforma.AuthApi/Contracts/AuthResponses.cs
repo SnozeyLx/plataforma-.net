@@ -3,7 +3,7 @@ namespace Plataforma.AuthApi.Contracts;
 /// <summary>
 /// Public account details returned after registration.
 /// </summary>
-public sealed record RegisterResponse(Guid UserId, string Email);
+public sealed record RegisterResponse(Guid UserId, string Email, string PlayerName);
 
 /// <summary>
 /// Access and refresh credentials for a platform session.

@@ -1,7 +1,7 @@
-using System.ComponentModel.DataAnnotations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Plataforma.AuthApi.Contracts;
 using Plataforma.AuthApi.Services;
 using Plataforma.Database.Identity;
@@ -70,6 +70,7 @@ public static class AuthEndpoints
     private static async Task<IResult> RegisterAsync(
         RegisterRequest? request,
         UserManager<ApplicationUser> userManager,
+        IFriendService friendService,
         CancellationToken cancellationToken)
     {
         if (request is null)
@@ -77,23 +78,56 @@ public static class AuthEndpoints
             return MissingRequestBody();
         }
 
-        var validationErrors = Validate(request);
+        var validationErrors = EndpointRequestValidation.Validate(request);
         if (validationErrors.Count > 0)
         {
             return Results.ValidationProblem(validationErrors);
         }
 
         var email = request.Email.Trim();
+        var playerName = request.PlayerName.Trim();
+        var normalizedPlayerName = FriendService.NormalizePlayerName(playerName);
+        if (await friendService.IsPlayerNameTakenAsync(
+            normalizedPlayerName,
+            exceptUserId: null,
+            cancellationToken))
+        {
+            return Results.Problem(
+                title: "This gamertag is already in use.",
+                statusCode: StatusCodes.Status409Conflict);
+        }
+
         var user = new ApplicationUser
         {
             UserName = email,
-            Email = email
+            Email = email,
+            PlayerName = playerName,
+            NormalizedPlayerName = normalizedPlayerName
         };
-        var result = await userManager.CreateAsync(user, request.Password);
+        IdentityResult result;
+        try
+        {
+            result = await userManager.CreateAsync(user, request.Password);
+        }
+        catch (DbUpdateException)
+        {
+            if (await friendService.IsPlayerNameTakenAsync(
+                normalizedPlayerName,
+                exceptUserId: null,
+                cancellationToken))
+            {
+                return Results.Problem(
+                    title: "This gamertag is already in use.",
+                    statusCode: StatusCodes.Status409Conflict);
+            }
+
+            throw;
+        }
+
         if (result.Succeeded)
         {
             return Results.Json(
-                new RegisterResponse(user.Id, user.Email!),
+                new RegisterResponse(user.Id, user.Email!, user.PlayerName!),
                 statusCode: StatusCodes.Status201Created);
         }
 
@@ -124,7 +158,7 @@ public static class AuthEndpoints
             return MissingRequestBody();
         }
 
-        var validationErrors = Validate(request);
+        var validationErrors = EndpointRequestValidation.Validate(request);
         if (validationErrors.Count > 0)
         {
             return Results.ValidationProblem(validationErrors);
@@ -163,7 +197,7 @@ public static class AuthEndpoints
             return MissingRequestBody();
         }
 
-        var validationErrors = Validate(request);
+        var validationErrors = EndpointRequestValidation.Validate(request);
         if (validationErrors.Count > 0)
         {
             return Results.ValidationProblem(validationErrors);
@@ -187,7 +221,7 @@ public static class AuthEndpoints
             return MissingRequestBody();
         }
 
-        var validationErrors = Validate(request);
+        var validationErrors = EndpointRequestValidation.Validate(request);
         if (validationErrors.Count > 0)
         {
             return Results.ValidationProblem(validationErrors);
@@ -207,20 +241,6 @@ public static class AuthEndpoints
 
         var email = principal.FindFirstValue(JwtRegisteredClaimNames.Email);
         return Results.Ok(new CurrentUserResponse(userId, email ?? string.Empty));
-    }
-
-    private static Dictionary<string, string[]> Validate(object request)
-    {
-        var results = new List<ValidationResult>();
-        Validator.TryValidateObject(request, new ValidationContext(request), results, validateAllProperties: true);
-
-        return results
-            .SelectMany(result => result.MemberNames.DefaultIfEmpty(string.Empty)
-                .Select(memberName => new { MemberName = memberName, result.ErrorMessage }))
-            .GroupBy(result => result.MemberName)
-            .ToDictionary(
-                group => group.Key,
-                group => group.Select(result => result.ErrorMessage ?? "The value is invalid.").ToArray());
     }
 
     private static IResult MissingRequestBody() =>

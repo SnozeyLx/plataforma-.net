@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +8,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Plataforma.AuthApi.Configuration;
 using Plataforma.AuthApi.Endpoints;
+using Plataforma.AuthApi.Hubs;
 using Plataforma.AuthApi.Services;
 using Plataforma.Database;
 using Plataforma.Database.Identity;
@@ -21,6 +23,9 @@ if (string.IsNullOrWhiteSpace(connectionString))
 
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
+builder.Services.AddSignalR();
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddDbContext<PlatformDbContext>(options => options.UseMySQL(connectionString));
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
@@ -40,6 +45,8 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddDefaultTokenProviders();
 
 builder.Services.AddSingleton<IValidateOptions<JwtOptions>, JwtOptionsValidator>();
+builder.Services.Configure<GameDeliveryOptions>(
+    builder.Configuration.GetSection(GameDeliveryOptions.SectionName));
 builder.Services.AddOptions<JwtOptions>()
     .BindConfiguration(JwtOptions.SectionName)
     .ValidateOnStart();
@@ -69,6 +76,9 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
 builder.Services.AddAuthorization();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IFriendService, FriendService>();
+builder.Services.AddScoped<IFriendChatService, FriendChatService>();
+builder.Services.AddScoped<IGameDeliveryService, GameDeliveryService>();
 
 var app = builder.Build();
 
@@ -84,5 +94,10 @@ if (app.Environment.IsDevelopment())
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapAuthEndpoints();
+app.MapProfileEndpoints();
+app.MapFriendEndpoints();
+app.MapFriendChatEndpoints();
+app.MapGameDeliveryEndpoints();
+app.MapHub<FriendChatHub>("/api/chat/hub").RequireAuthorization();
 
 app.Run();

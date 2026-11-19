@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Sombra suave para destacar na barra de tarefas do Windows -->
+    <filter id="dropShadow" x="-10%" y="-10%" width="125%" height="125%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.45" />
+    </filter>
+
+    <!-- Gradientes Profissionais -->
+    <linearGradient id="capRed" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FF3B30" />
+      <stop offset="100%" stop-color="#C81E1E" />
+    </linearGradient>
+
+    <linearGradient id="overallBlue" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB" />
+      <stop offset="100%" stop-color="#1D4ED8" />
+    </linearGradient>
+
+    <linearGradient id="skinTone" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFD1A3" />
+      <stop offset="100%" stop-color="#F4A261" />
+    </linearGradient>
+
+    <linearGradient id="brickGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#D97706" />
+      <stop offset="100%" stop-color="#92400E" />
+    </linearGradient>
+
+    <linearGradient id="grassGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#22C55E" />
+      <stop offset="100%" stop-color="#15803D" />
+    </linearGradient>
+
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FEF08A" />
+      <stop offset="50%" stop-color="#EAB308" />
+      <stop offset="100%" stop-color="#CA8A04" />
+    </linearGradient>
+  </defs>
+
+  <g filter="url(#dropShadow)">
+    
+    <!-- ================= MOEDA FLUTUANTE (DIREITA SUPERIOR) ================= -->
+    <g transform="translate(390, 95)">
+      <ellipse cx="32" cy="42" rx="28" ry="38" fill="url(#goldGrad)" stroke="#1E1B18" stroke-width="10" />
+      <ellipse cx="32" cy="42" rx="18" ry="26" fill="none" stroke="#FEF08A" stroke-width="4" opacity="0.7" />
+      <rect x="27" y="24" width="10" height="36" rx="4" fill="#CA8A04" stroke="#1E1B18" stroke-width="4" />
+    </g>
+
+    <!-- ================= LINHAS DE VELOCIDADE (MOTION LINES) ================= -->
+    <g stroke="#FFFFFF" stroke-width="10" stroke-linecap="round" opacity="0.85">
+      <line x1="45" y1="210" x2="95" y2="210" />
+      <line x1="25" y1="255" x2="85" y2="255" />
+      <line x1="55" y1="300" x2="100" y2="300" />
+    </g>
+
+    <!-- ================= PLATAFORMA 2D (BASE) ================= -->
+    <g transform="translate(56, 376)">
+      <!-- Bloco de Tijolos -->
+      <rect x="0" y="16" width="400" height="88" rx="18" fill="url(#brickGrad)" stroke="#1E1B18" stroke-width="12" />
+      
+      <!-- Divisórias dos Tijolos -->
+      <line x1="0" y1="60" x2="400" y2="60" stroke="#1E1B18" stroke-width="10" />
+      <line x1="130" y1="20" x2="130" y2="60" stroke="#1E1B18" stroke-width="10" />
+      <line x1="270" y1="20" x2="270" y2="60" stroke="#1E1B18" stroke-width="10" />
+      <line x1="70" y1="60" x2="70" y2="104" stroke="#1E1B18" stroke-width="10" />
+      <line x1="200" y1="60" x2="200" y2="104" stroke="#1E1B18" stroke-width="10" />
+      <line x1="330" y1="60" x2="330" y2="104" stroke="#1E1B18" stroke-width="10" />
+
+      <!-- Topo de Grama 2D -->
+      <path d="M -6,24 Q -6,0 18,0 L 382,0 Q 406,0 406,24 L 406,32 C 370,46 340,22 305,36 C 270,48 235,22 200,36 C 165,48 130,22 95,36 C 60,48 30,22 -6,32 Z" fill="url(#grassGrad)" stroke="#1E1B18" stroke-width="12" stroke-linejoin="round" />
+      <!-- Brilho da Grama -->
+      <path d="M 20,12 L 380,12" stroke="#86EFAC" stroke-width="6" stroke-linecap="round" opacity="0.6" />
+    </g>
+
+    <!-- ================= PERSONAGEM CORRENDO (ESTILO PLATAFORMA) ================= -->
+    <g transform="translate(15, 0)">
+      
+      <!-- Braço de Trás (Esquerdo) -->
+      <path d="M 195,235 C 160,250 140,270 130,290" fill="none" stroke="url(#capRed)" stroke-width="34" stroke-linecap="round" />
+      <path d="M 195,235 C 160,250 140,270 130,290" fill="none" stroke="#1E1B18" stroke-width="12" stroke-linecap="round" />
+      <!-- Luva de Trás -->
+      <circle cx="125" cy="295" r="24" fill="#FFFFFF" stroke="#1E1B18" stroke-width="12" />
+
+      <!-- Perna de Trás (Esquerda - no ar) -->
+      <path d="M 215,310 L 165,345" stroke="url(#overallBlue)" stroke-width="38" stroke-linecap="round" />
+      <path d="M 215,310 L 165,345" stroke="#1E1B18" stroke-width="12" stroke-linecap="round" />
+      <!-- Sapato de Trás -->
+      <path d="M 135,330 C 120,345 125,375 150,375 L 185,365 C 190,350 175,330 155,330 Z" fill="#854D0E" stroke="#1E1B18" stroke-width="12" stroke-linejoin="round" />
+
+      <!-- Perna da Frente (Direita - apoiando na plataforma) -->
+      <path d="M 255,310 L 295,355" stroke="url(#overallBlue)" stroke-width="38" stroke-linecap="round" />
+      <path d="M 255,310 L 295,355" stroke="#1E1B18" stroke-width="12" stroke-linecap="round" />
+      <!-- Sapato da Frente -->
+      <path d="M 275,355 L 340,355 C 355,355 360,382 335,382 L 270,382 C 260,382 260,362 275,355 Z" fill="#A16207" stroke="#1E1B18" stroke-width="12" stroke-linejoin="round" />
+
+      <!-- Tronco / Camisa Vermelha -->
+      <ellipse cx="240" cy="265" rx="48" ry="52" fill="url(#capRed)" stroke="#1E1B18" stroke-width="12" />
+
+      <!-- Macacão Azul -->
+      <path d="M 196,265 C 196,315 284,315 284,265 L 272,265 L 272,225 L 252,225 L 252,255 L 228,255 L 228,225 L 208,225 L 208,265 Z" fill="url(#overallBlue)" stroke="#1E1B18" stroke-width="12" stroke-linejoin="round" />
+      
+      <!-- Botões Amarelos do Macacão -->
+      <circle cx="218" cy="272" r="9" fill="#FACC15" stroke="#1E1B18" stroke-width="6" />
+      <circle cx="262" cy="272" r="9" fill="#FACC15" stroke="#1E1B18" stroke-width="6" />
+
+      <!-- ================= CABEÇA E BONÉ ================= -->
+      <!-- Rosto -->
+      <circle cx="248" cy="160" r="56" fill="url(#skinTone)" stroke="#1E1B18" stroke-width="12" />
+
+      <!-- Orelha -->
+      <circle cx="195" cy="170" r="18" fill="url(#skinTone)" stroke="#1E1B18" stroke-width="10" />
+
+      <!-- Olho -->
+      <ellipse cx="272" cy="155" rx="8" ry="16" fill="#1E1B18" />
+      <circle cx="274" cy="149" r="4" fill="#FFFFFF" />
+
+      <!-- Bigode Clássico -->
+      <path d="M 255,182 C 275,172 315,178 320,192 C 312,206 292,204 282,198 C 272,206 252,204 246,192 Z" fill="#451A03" stroke="#1E1B18" stroke-width="8" stroke-linejoin="round" />
+
+      <!-- Nariz Grande (Por cima do bigode) -->
+      <ellipse cx="298" cy="168" rx="24" ry="20" fill="url(#skinTone)" stroke="#1E1B18" stroke-width="10" />
+
+      <!-- Boné Vermelho -->
+      <path d="M 185,145 C 180,85 240,65 295,95 C 315,106 320,125 320,138 L 355,142 C 365,145 365,160 345,160 L 188,152 Z" fill="url(#capRed)" stroke="#1E1B18" stroke-width="12" stroke-linejoin="round" />
+      
+      <!-- Emblema Branco no Boné -->
+      <circle cx="268" cy="112" r="18" fill="#FFFFFF" stroke="#1E1B18" stroke-width="8" />
+      <!-- Estrela / Detalhe no Emblema -->
+      <polygon points="268,100 272,108 280,109 274,115 276,122 268,118 260,122 262,115 256,109 264,108" fill="#EF4444" />
+
+      <!-- Braço da Frente (Direito - Impulso de corrida) -->
+      <path d="M 255,245 L 315,220" stroke="url(#capRed)" stroke-width="32" stroke-linecap="round" />
+      <path d="M 255,245 L 315,220" stroke="#1E1B18" stroke-width="12" stroke-linecap="round" />
+      <!-- Luva da Frente -->
+      <circle cx="330" cy="212" r="26" fill="#FFFFFF" stroke="#1E1B18" stroke-width="12" />
+    </g>
+
+  </g>
+</svg>

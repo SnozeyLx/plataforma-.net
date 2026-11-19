@@ -1,10 +1,20 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { FriendChat } from "@/components/friend-chat";
+import { FriendManager } from "@/components/friend-manager";
 
 interface CurrentUser {
   userId: string;
   email: string;
+}
+
+interface PlayerProfile {
+  userId: string;
+  playerName: string | null;
+  profileIconId: number;
 }
 
 interface ApiProblem {
@@ -15,6 +25,11 @@ interface ApiProblem {
 
 type AuthMode = "login" | "register";
 type ApiStatus = "checking" | "online" | "offline";
+
+const profileIconTemplates = Array.from(
+  { length: 8 },
+  (_, index) => `/profile-icons/avatar-${index + 1}.svg`,
+);
 
 function getErrorMessage(problem: ApiProblem | null, fallback: string): string {
   if (problem?.detail) {
@@ -43,8 +58,27 @@ export function AuthDemo() {
   const [apiStatus, setApiStatus] = useState<ApiStatus>("checking");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFriendManagerOpen, setIsFriendManagerOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [profile, setProfile] = useState<PlayerProfile | null>(null);
+  const [playerNameDraft, setPlayerNameDraft] = useState("");
+  const [profileIconDraft, setProfileIconDraft] = useState(1);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"error" | "success">("error");
+
+  const refreshProfile = useCallback(async () => {
+    const response = await fetch("/api/platform/profile", { cache: "no-store" });
+    if (!response.ok) {
+      return false;
+    }
+
+    const data = (await response.json()) as PlayerProfile;
+    setProfile(data);
+    setPlayerNameDraft(data.playerName ?? "");
+    setProfileIconDraft(data.profileIconId || 1);
+    return true;
+  }, []);
 
   const refreshUser = useCallback(async () => {
     const response = await fetch("/api/auth/me", { cache: "no-store" });
@@ -54,6 +88,7 @@ export function AuthDemo() {
     }
 
     setUser((await response.json()) as CurrentUser);
+    await refreshProfile();
     return true;
   }, []);
 
@@ -73,6 +108,7 @@ export function AuthDemo() {
       setApiStatus(healthResponse.ok ? "online" : "offline");
       if (sessionResponse.ok) {
         setUser((await sessionResponse.json()) as CurrentUser);
+        await refreshProfile();
       } else {
         setUser(null);
       }
@@ -107,6 +143,9 @@ export function AuthDemo() {
     const payload = {
       email: String(formData.get("email") ?? "").trim(),
       password: String(formData.get("password") ?? ""),
+      ...(mode === "register"
+        ? { playerName: String(formData.get("playerName") ?? "").trim() }
+        : {}),
     };
 
     try {
@@ -169,6 +208,48 @@ export function AuthDemo() {
     }
   }
 
+  function openProfileModal() {
+    setPlayerNameDraft(profile?.playerName ?? "");
+    setProfileIconDraft(profile?.profileIconId || 1);
+    setIsProfileModalOpen(true);
+  }
+
+  async function handleProfileSave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/platform/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          playerName: playerNameDraft.trim(),
+          profileIconId: profileIconDraft,
+        }),
+      });
+
+      if (!response.ok) {
+        setFeedback(
+          getErrorMessage(await readProblem(response), "Não foi possível salvar o perfil."),
+          "error",
+        );
+        return;
+      }
+
+      const updated = (await response.json()) as PlayerProfile;
+      setProfile(updated);
+      setPlayerNameDraft(updated.playerName ?? "");
+      setProfileIconDraft(updated.profileIconId);
+      setIsProfileModalOpen(false);
+      setFeedback("Perfil atualizado.", "success");
+    } catch {
+      setFeedback("Não foi possível conectar à API para salvar o perfil.", "error");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   function switchMode(nextMode: AuthMode) {
     setMode(nextMode);
     setMessage("");
@@ -185,15 +266,24 @@ export function AuthDemo() {
     <div className="page-shell">
       <header className="topbar">
         <div className="brand">
-          <div className="brand-mark" aria-hidden="true">
-            PL
-          </div>
+          <Image
+            alt=""
+            aria-hidden="true"
+            className="brand-logo"
+            height={44}
+            src="/logo_teste.svg"
+            unoptimized
+            width={44}
+          />
           <div>
             <div className="brand-name">PLAYLAB</div>
             <div className="brand-caption">Plataforma de jogos</div>
           </div>
         </div>
         <div className="topbar-meta">
+          <Link className="topbar-store-link" href="/loja">
+            Loja
+          </Link>
           <div className="api-status" aria-live="polite">
             <span className={`status-dot ${apiStatus}`} />
             <span>{apiStatusLabel}</span>
@@ -223,13 +313,42 @@ export function AuthDemo() {
 
             <div className="dashboard-card">
               <div className="account-line">
-                <div className="avatar" aria-hidden="true">
-                  {user.email.charAt(0).toUpperCase()}
-                </div>
+                <button
+                  className="avatar profile-avatar-button"
+                  type="button"
+                  onClick={openProfileModal}
+                  aria-label="Editar perfil"
+                >
+                  <img
+                    src={profileIconTemplates[(profile?.profileIconId ?? 1) - 1]}
+                    alt=""
+                    width={48}
+                    height={48}
+                  />
+                </button>
                 <div>
                   <div className="account-label">Conta conectada</div>
-                  <div className="account-email">{user.email}</div>
+                  <div className="account-email">
+                    {profile?.playerName || user.email}
+                  </div>
                 </div>
+                <button
+                  className="profile-edit-button"
+                  onClick={openProfileModal}
+                  type="button"
+                >
+                  Editar perfil
+                </button>
+                <button
+                  className="profile-logout-button"
+                  disabled={isSubmitting}
+                  onClick={() => void handleLogout()}
+                  type="button"
+                  title="Encerrar sessão"
+                  aria-label="Encerrar sessão"
+                >
+                  ↪
+                </button>
               </div>
 
               <div className="dashboard-grid">
@@ -244,10 +363,10 @@ export function AuthDemo() {
               </div>
 
               <div className="next-step">
-                <strong>O catálogo é o próximo capítulo</strong>
+                <strong>Seu grupo de jogo começa aqui</strong>
                 <p>
-                  A conexão com a conta está pronta. O portal ainda não lista jogos; esse será
-                  um próximo passo do desenvolvimento.
+                  Encontre jogadores, envie solicitações e prepare sua lista para futuras
+                  partidas cooperativas.
                 </p>
               </div>
 
@@ -259,12 +378,18 @@ export function AuthDemo() {
 
               <div className="dashboard-actions">
                 <button
-                  className="secondary-button"
-                  disabled={isSubmitting}
-                  onClick={() => void handleLogout()}
+                  className="primary-button"
+                  onClick={() => setIsFriendManagerOpen(true)}
                   type="button"
                 >
-                  Encerrar sessão
+                  Gerenciar amigos
+                </button>
+                <button
+                  className="secondary-button"
+                  onClick={() => setIsChatOpen(true)}
+                  type="button"
+                >
+                  Chat com amigos
                 </button>
               </div>
             </div>
@@ -328,6 +453,25 @@ export function AuthDemo() {
                 </p>
               ) : (
                 <form className="auth-form" onSubmit={handleSubmit}>
+                  {mode === "register" && (
+                    <label className="field">
+                      <span className="form-label">
+                        Gamertag
+                        <span className="field-hint">3–24 letras, números ou _</span>
+                      </span>
+                      <input
+                        autoComplete="nickname"
+                        className="form-input"
+                        maxLength={24}
+                        minLength={3}
+                        name="playerName"
+                        pattern="[A-Za-z0-9_]{3,24}"
+                        placeholder="player_01"
+                        required
+                      />
+                    </label>
+                  )}
+
                   <label className="field">
                     <span className="form-label">E-mail</span>
                     <input
@@ -397,6 +541,100 @@ export function AuthDemo() {
           </section>
         )}
       </main>
+
+      {isProfileModalOpen && user && (
+        <div
+          className="profile-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target) {
+              setIsProfileModalOpen(false);
+            }
+          }}
+        >
+          <section
+            className="profile-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="profile-modal-title"
+          >
+            <div className="profile-modal-heading">
+              <div>
+                <span className="profile-modal-eyebrow">CONFIGURAÇÕES DA CONTA</span>
+                <h2 id="profile-modal-title">Editar perfil</h2>
+              </div>
+              <button
+                className="profile-modal-close"
+                type="button"
+                onClick={() => setIsProfileModalOpen(false)}
+                aria-label="Fechar"
+              >
+                ×
+              </button>
+            </div>
+
+            <form className="profile-modal-form" onSubmit={handleProfileSave}>
+              <label className="field">
+                <span className="form-label">
+                  Gamertag
+                  <span className="field-hint">3–24 letras, números ou _</span>
+                </span>
+                <input
+                  className="form-input"
+                  maxLength={24}
+                  minLength={3}
+                  pattern="[A-Za-z0-9_]{3,24}"
+                  value={playerNameDraft}
+                  onChange={(event) => setPlayerNameDraft(event.target.value)}
+                  required
+                />
+              </label>
+
+              <div>
+                <span className="form-label">Ícone do perfil</span>
+                <div className="profile-icon-grid" role="radiogroup" aria-label="Ícones do perfil">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((iconId) => (
+                    <button
+                      key={iconId}
+                      className={`profile-icon-option ${profileIconDraft === iconId ? "selected" : ""}`}
+                      type="button"
+                      role="radio"
+                      aria-checked={profileIconDraft === iconId}
+                      onClick={() => setProfileIconDraft(iconId)}
+                    >
+                      <img
+                        src={profileIconTemplates[iconId - 1]}
+                        alt={`Ícone de perfil ${iconId}`}
+                        width={44}
+                        height={44}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="profile-modal-actions">
+                <span className="profile-modal-email">{user.email}</span>
+                <button
+                  className="primary-button"
+                  type="submit"
+                  disabled={isSubmitting}
+                >
+                  Salvar perfil
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {isFriendManagerOpen && <FriendManager onClose={() => setIsFriendManagerOpen(false)} />}
+      {isChatOpen && user && (
+        <FriendChat
+          currentUserId={user.userId}
+          onClose={() => setIsChatOpen(false)}
+        />
+      )}
 
       <footer className="footer">
         <span>

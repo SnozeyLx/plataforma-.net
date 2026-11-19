@@ -36,6 +36,26 @@ export async function requestAuthApi(
   }
 }
 
+export async function requestPlatformApi(
+  path: string,
+  init?: RequestInit,
+): Promise<Response | null> {
+  const baseUrl = (process.env.AUTH_API_BASE_URL ?? "http://localhost:5000").replace(
+    /\/+$/,
+    "",
+  );
+
+  try {
+    return await fetch(`${baseUrl}/api${path}`, {
+      ...init,
+      cache: "no-store",
+      redirect: "manual",
+    });
+  } catch {
+    return null;
+  }
+}
+
 export async function requestApiHealth(): Promise<Response | null> {
   const baseUrl = (process.env.AUTH_API_BASE_URL ?? "http://localhost:5000").replace(
     /\/+$/,

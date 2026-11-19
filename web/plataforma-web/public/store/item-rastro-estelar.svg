@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 480">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#152141"/>
+      <stop offset=".55" stop-color="#51458d"/>
+      <stop offset="1" stop-color="#bc5f9a"/>
+    </linearGradient>
+    <linearGradient id="trail" x1="0" x2="1">
+      <stop stop-color="#8dfcff" stop-opacity="0"/>
+      <stop offset=".6" stop-color="#8dfcff"/>
+      <stop offset="1" stop-color="#fff4be"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#bg)" d="M0 0h720v480H0z"/>
+  <circle cx="505" cy="213" r="103" fill="none" stroke="#ffd8ef" stroke-opacity=".35" stroke-width="3"/>
+  <circle cx="505" cy="213" r="68" fill="none" stroke="#98f6ff" stroke-opacity=".55" stroke-width="3"/>
+  <path d="M69 317c99-16 154-120 258-113 71 4 87 76 151 73" fill="none" stroke="url(#trail)" stroke-linecap="round" stroke-width="23"/>
+  <path d="m448 263 70-61 9 89z" fill="#fff7c5"/>
+  <path d="m87 274 149-79m-124 137 177-94" stroke="#c1fcff" stroke-opacity=".5" stroke-linecap="round" stroke-width="4"/>
+  <circle cx="142" cy="114" r="3" fill="#fff"/>
+  <circle cx="242" cy="134" r="2" fill="#fff"/>
+  <circle cx="623" cy="105" r="3" fill="#fff"/>
+  <text fill="#d8faff" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" letter-spacing="6" x="42" y="58">CIRCUITO CELESTE</text>
+  <text fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="38" font-weight="800" x="42" y="432">RASTRO ESTELAR</text>
+</svg>

@@ -4,6 +4,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Playlab | Plataforma de jogos",
   description: "Demonstração de autenticação para a plataforma de jogos.",
+  icons: {
+    icon: "/logo_teste.svg",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

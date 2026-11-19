@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675">
+  <defs>
+    <linearGradient id="forest" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#102a2a"/>
+      <stop offset=".52" stop-color="#31584a"/>
+      <stop offset="1" stop-color="#d37a43"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0" x2="0" y1="0" y2="1">
+      <stop stop-color="#ffe7a7"/>
+      <stop offset="1" stop-color="#ff9d55" stop-opacity=".1"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#forest)" d="M0 0h1200v675H0z"/>
+  <circle cx="780" cy="235" r="163" fill="url(#glow)" opacity=".85"/>
+  <path d="M0 510 169 283l125 144 150-242 176 274 176-224 162 226 119-154 123 203v165H0z" fill="#102b2d" opacity=".8"/>
+  <path d="M510 537V313l83-93 86 93v224" fill="#1b3030"/>
+  <path d="M552 537V342l41-52 45 52v195" fill="#ffbd72" opacity=".8"/>
+  <path d="M0 586c180-65 285-36 451-61 212-32 371 9 749-54v204H0z" fill="#0d1b20" opacity=".72"/>
+  <path d="M847 0c-27 79-19 150 25 217 49-41 77-113 83-217m-248 0c-10 91 5 163 47 220 36-55 43-128 22-220" fill="#193c37" opacity=".8"/>
+  <circle cx="229" cy="136" r="3" fill="#fbe4a9"/>
+  <circle cx="322" cy="192" r="2" fill="#fbe4a9"/>
+  <text fill="#f7e9c3" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700" letter-spacing="8" x="72" y="91">FANTASIA • EXPLORAÇÃO</text>
+  <text fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="60" font-weight="800" letter-spacing="3" x="72" y="158">ECOS DE ARKEN</text>
+</svg>

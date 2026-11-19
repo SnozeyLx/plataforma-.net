@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675">
+  <defs>
+    <linearGradient id="neon" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#171035"/>
+      <stop offset=".53" stop-color="#5c266b"/>
+      <stop offset="1" stop-color="#ed6b82"/>
+    </linearGradient>
+    <linearGradient id="beam" x1="0" x2="0" y1="0" y2="1">
+      <stop stop-color="#ffda8a"/>
+      <stop offset="1" stop-color="#ffda8a" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#neon)" d="M0 0h1200v675H0z"/>
+  <circle cx="867" cy="180" r="92" fill="#ffc48b" opacity=".88"/>
+  <path d="M0 468h1200v207H0z" fill="#161126"/>
+  <path d="M98 467V314h117v153m30 0V252h147v215m33 0V338h100v129m42 0V213h179v254m33 0V294h139v173m31 0V329h100v138m31 0V267h84v200" fill="#23183c" stroke="#ff8daf" stroke-opacity=".4" stroke-width="3"/>
+  <path d="M130 326h45m-45 26h45m-45 26h45m104-94h69m-69 29h69m-69 29h69m73 17h47m-47 27h47m96-115h105m-105 30h105m-105 31h105m59 31h75m-75 29h75" stroke="#96f4ff" stroke-width="5" stroke-linecap="round"/>
+  <path d="M0 543h1200" stroke="#91efff" stroke-opacity=".5" stroke-width="3"/>
+  <path d="m389 551 220-165 219 165" fill="url(#beam)" opacity=".19"/>
+  <text fill="#ffe2f2" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700" letter-spacing="8" x="72" y="91">AVENTURA • MUNDO ABERTO</text>
+  <text fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="800" letter-spacing="3" x="72" y="158">FRONTEIRA NEON</text>
+</svg>

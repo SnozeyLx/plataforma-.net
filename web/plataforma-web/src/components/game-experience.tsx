@@ -30,6 +30,8 @@ const launcherPlatforms = [
   { id: "macos-arm64", label: "macOS Apple Silicon" },
   { id: "linux-x64", label: "Linux x64" },
 ] as const;
+type LauncherPlatform = (typeof launcherPlatforms)[number]["id"];
+type LauncherPlatformOption = (typeof launcherPlatforms)[number];
 
 interface GameLibraryItem {
   slug: string;
@@ -88,6 +90,8 @@ export function GameExperience({ game }: { game: StoreGame }) {
   const [isWebGlOpen, setIsWebGlOpen] = useState(false);
   const [webGlUrl, setWebGlUrl] = useState("");
   const [actionMessage, setActionMessage] = useState("");
+  const [selectedLauncherPlatform, setSelectedLauncherPlatform] =
+    useState<LauncherPlatformOption | null>(null);
 
   const hasGame = isConnectedGame ? serverOwnership : demoOwnership;
   const hasWebGl = isConnectedGame
@@ -232,7 +236,7 @@ export function GameExperience({ game }: { game: StoreGame }) {
     );
   }
 
-  async function downloadLauncher(platform: (typeof launcherPlatforms)[number]["id"]) {
+  async function downloadLauncher(platform: LauncherPlatform) {
     setActionMessage("");
     setIsLoadingBuildAccess(true);
     try {
@@ -519,24 +523,52 @@ export function GameExperience({ game }: { game: StoreGame }) {
                 <div
                   aria-label="Instaladores do launcher"
                   className="game-launcher-downloads"
-                  role="group"
                 >
-                  {launcherPlatforms.map((platform) => (
-                    <button
-                      className="game-download-button game-launcher-download-button"
-                      disabled={isLoadingBuildAccess}
-                      key={platform.id}
-                      onClick={() => downloadLauncher(platform.id)}
-                      type="button"
-                    >
-                      Baixar {platform.label}
-                    </button>
-                  ))}
+                  <label
+                    className="game-launcher-platform-label"
+                    htmlFor="launcher-platform"
+                  >
+                    Sistema operacional
+                  </label>
+                  <select
+                    className="game-launcher-platform-select"
+                    disabled={isLoadingBuildAccess}
+                    id="launcher-platform"
+                    onChange={(event) =>
+                      setSelectedLauncherPlatform(
+                        launcherPlatforms.find(
+                          (platform) => platform.id === event.target.value,
+                        ) ?? null,
+                      )
+                    }
+                    value={selectedLauncherPlatform?.id ?? ""}
+                  >
+                    <option value="">Selecione seu sistema</option>
+                    {launcherPlatforms.map((platform) => (
+                      <option key={platform.id} value={platform.id}>
+                        {platform.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className="game-download-button game-launcher-download-button"
+                    disabled={!selectedLauncherPlatform || isLoadingBuildAccess}
+                    onClick={() => {
+                      if (selectedLauncherPlatform) {
+                        void downloadLauncher(selectedLauncherPlatform.id);
+                      }
+                    }}
+                    type="button"
+                  >
+                    {selectedLauncherPlatform
+                      ? `Baixar para ${selectedLauncherPlatform.label}`
+                      : "Selecione uma plataforma"}
+                  </button>
                 </div>
               )}
               <p className="game-platforms-note">
                 {isConnectedGame
-                  ? "Escolha o instalador do seu sistema. O launcher recebe atualizações incrementais; o download do jogo só começa após a validação da sua licença."
+                  ? "Selecione o sistema para baixar o instalador correspondente. O launcher recebe atualizações incrementais; o download do jogo só começa após a validação da sua licença."
                   : "Builds e instaladores reais ainda não foram conectados."}
               </p>
             </section>

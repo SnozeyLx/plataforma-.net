@@ -2099,15 +2099,43 @@ button:disabled {
 
 .game-launcher-downloads {
   display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  grid-template-columns: minmax(0, 1fr);
   margin-top: 10px;
 }
 
-.game-launcher-download-button {
-  font-size: 8px;
+.game-launcher-platform-label {
+  color: #a4a8b2;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.game-launcher-platform-select {
+  appearance: none;
+  background: #171a22;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--foreground);
   min-height: 38px;
-  white-space: normal;
+  padding: 0 11px;
+  width: 100%;
+}
+
+.game-launcher-platform-select:focus-visible {
+  border-color: var(--lime);
+  outline: 2px solid rgba(200, 241, 105, 0.3);
+  outline-offset: 2px;
+}
+
+.game-launcher-platform-select:disabled {
+  color: #6f7480;
+  cursor: wait;
+}
+
+.game-launcher-download-button {
+  font-size: 10px;
+  min-height: 38px;
+  white-space: nowrap;
   width: 100%;
 }
 

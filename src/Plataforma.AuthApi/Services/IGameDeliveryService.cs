@@ -3,7 +3,7 @@ using Plataforma.AuthApi.Contracts;
 namespace Plataforma.AuthApi.Services;
 
 /// <summary>
-/// Provides authenticated game library and temporary build access.
+/// Provides game library, build, and launcher delivery access.
 /// </summary>
 public interface IGameDeliveryService
 {
@@ -24,9 +24,18 @@ public interface IGameDeliveryService
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Creates a short-lived URL for the Windows launcher archive.
+    /// Creates a short-lived URL for a supported launcher installer.
     /// </summary>
     Task<LauncherDownloadAccessResult> GetLauncherDownloadAccessAsync(
+        string platform,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Creates a short-lived URL for an update asset in a supported release channel.
+    /// </summary>
+    Task<LauncherUpdateAssetAccessResult> GetLauncherUpdateAssetAccessAsync(
+        string channel,
+        string assetName,
         CancellationToken cancellationToken);
 }
 
@@ -45,6 +54,13 @@ public sealed record LauncherDownloadAccessResult(
     LauncherDownloadAccessResponse? Access = null);
 
 /// <summary>
+/// Describes the outcome of a launcher update asset access request.
+/// </summary>
+public sealed record LauncherUpdateAssetAccessResult(
+    LauncherUpdateAssetAccessStatus Status,
+    string? Url = null);
+
+/// <summary>
 /// Lists the possible results of a launcher download access request.
 /// </summary>
 public enum LauncherDownloadAccessStatus
@@ -55,7 +71,38 @@ public enum LauncherDownloadAccessStatus
     Available,
 
     /// <summary>
-    /// The launcher archive is not configured.
+    /// The launcher installer is not configured.
+    /// </summary>
+    BuildUnavailable,
+
+    /// <summary>
+    /// CDN delivery configuration is incomplete or invalid.
+    /// </summary>
+    ConfigurationUnavailable,
+
+    /// <summary>
+    /// The requested launcher platform is not supported.
+    /// </summary>
+    UnsupportedPlatform
+}
+
+/// <summary>
+/// Lists the possible results of a launcher update asset access request.
+/// </summary>
+public enum LauncherUpdateAssetAccessStatus
+{
+    /// <summary>
+    /// A signed URL was created.
+    /// </summary>
+    Available,
+
+    /// <summary>
+    /// The release channel or asset name is not allowed.
+    /// </summary>
+    InvalidAsset,
+
+    /// <summary>
+    /// The launcher update asset directory is not configured.
     /// </summary>
     BuildUnavailable,
 

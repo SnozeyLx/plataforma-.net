@@ -19,6 +19,19 @@ interface RouteContext {
 
 type PlatformMethod = "GET" | "POST" | "PUT" | "DELETE";
 
+const publicLauncherPlatforms = new Set([
+  "windows",
+  "macos-x64",
+  "macos-arm64",
+  "linux-x64",
+]);
+const publicLauncherUpdateChannels = new Set([
+  "win-x64",
+  "osx-x64",
+  "osx-arm64",
+  "linux-x64",
+]);
+
 export async function GET(request: Request, context: RouteContext) {
   return proxyPlatformRequest(request, context, "GET");
 }
@@ -46,7 +59,20 @@ async function proxyPlatformRequest(
 
   const { path } = await context.params;
   const apiPath = `/${path.map(encodeURIComponent).join("/")}${new URL(request.url).search}`;
-  if (method === "GET" && path.join("/") === "launcher/windows/access") {
+  const isPublicLauncherInstallerRequest =
+    path.length === 3 &&
+    path[0] === "launcher" &&
+    publicLauncherPlatforms.has(path[1]) &&
+    path[2] === "access";
+  const isPublicLauncherUpdateRequest =
+    path.length === 4 &&
+    path[0] === "launcher" &&
+    path[1] === "updates" &&
+    publicLauncherUpdateChannels.has(path[2]);
+  if (
+    method === "GET" &&
+    (isPublicLauncherInstallerRequest || isPublicLauncherUpdateRequest)
+  ) {
     const upstream = await requestPlatformApi(apiPath, { method });
     return upstream ? forwardResponse(upstream) : upstreamUnavailable();
   }
@@ -146,6 +172,10 @@ async function forwardResponse(upstream: Response): Promise<NextResponse> {
   const contentType = upstream.headers.get("content-type");
   if (contentType) {
     headers.set("Content-Type", contentType);
+  }
+  const location = upstream.headers.get("location");
+  if (location) {
+    headers.set("Location", location);
   }
 
   const body = upstream.status === 204 ? null : await upstream.arrayBuffer();

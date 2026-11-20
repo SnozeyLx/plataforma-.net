@@ -37,11 +37,21 @@ public static class GameDeliveryEndpoints
             .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
             .ProducesValidationProblem();
 
-        group.MapGet("/launcher/windows/access", GetLauncherDownloadAccessAsync)
-            .WithName("GetWindowsLauncherDownloadAccess")
-            .WithSummary("Get temporary access to the Windows platform launcher")
-            .WithDescription("Publicly returns a short-lived Bunny CDN URL for the launcher archive; game builds remain entitlement-protected.")
+        group.MapGet("/launcher/{platform}/access", GetLauncherDownloadAccessAsync)
+            .WithName("GetLauncherDownloadAccess")
+            .WithSummary("Get temporary access to a platform launcher")
+            .WithDescription("Publicly returns a short-lived Bunny CDN URL for a supported launcher installer; game builds remain entitlement-protected.")
             .Produces<LauncherDownloadAccessResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
+            .AllowAnonymous();
+
+        group.MapGet("/launcher/updates/{channel}/{assetName}", GetLauncherUpdateAssetAsync)
+            .WithName("GetLauncherUpdateAsset")
+            .WithSummary("Redirect to a launcher update asset")
+            .WithDescription("Validates the release channel and asset name, then redirects to a short-lived Bunny CDN URL.")
+            .Produces(StatusCodes.Status302Found)
+            .Produces(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
             .AllowAnonymous();
 
@@ -112,19 +122,55 @@ public static class GameDeliveryEndpoints
 
     private static async Task<Results<
         Ok<LauncherDownloadAccessResponse>,
+        ValidationProblem,
         ProblemHttpResult>> GetLauncherDownloadAccessAsync(
+        string platform,
         IGameDeliveryService gameDeliveryService,
         CancellationToken cancellationToken)
     {
-        var result = await gameDeliveryService.GetLauncherDownloadAccessAsync(cancellationToken);
+        var result = await gameDeliveryService.GetLauncherDownloadAccessAsync(
+            platform,
+            cancellationToken);
         return result.Status switch
         {
             LauncherDownloadAccessStatus.Available => TypedResults.Ok(result.Access!),
+            LauncherDownloadAccessStatus.UnsupportedPlatform => TypedResults.ValidationProblem(
+                new Dictionary<string, string[]>
+                {
+                    ["platform"] = ["The requested launcher platform is not supported."]
+                }),
             LauncherDownloadAccessStatus.BuildUnavailable => TypedResults.Problem(
                 title: "The platform launcher is not published.",
                 statusCode: StatusCodes.Status503ServiceUnavailable),
             _ => TypedResults.Problem(
                 title: "Launcher delivery is not configured.",
+                statusCode: StatusCodes.Status503ServiceUnavailable)
+        };
+    }
+
+    private static async Task<Results<
+        RedirectHttpResult,
+        NotFound,
+        ProblemHttpResult>> GetLauncherUpdateAssetAsync(
+        string channel,
+        string assetName,
+        IGameDeliveryService gameDeliveryService,
+        CancellationToken cancellationToken)
+    {
+        var result = await gameDeliveryService.GetLauncherUpdateAssetAccessAsync(
+            channel,
+            assetName,
+            cancellationToken);
+
+        return result.Status switch
+        {
+            LauncherUpdateAssetAccessStatus.Available => TypedResults.Redirect(result.Url!),
+            LauncherUpdateAssetAccessStatus.InvalidAsset => TypedResults.NotFound(),
+            LauncherUpdateAssetAccessStatus.BuildUnavailable => TypedResults.Problem(
+                title: "Launcher update assets are not published.",
+                statusCode: StatusCodes.Status503ServiceUnavailable),
+            _ => TypedResults.Problem(
+                title: "Launcher update delivery is not configured.",
                 statusCode: StatusCodes.Status503ServiceUnavailable)
         };
     }

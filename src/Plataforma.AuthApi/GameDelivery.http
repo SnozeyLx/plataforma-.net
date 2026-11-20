@@ -13,8 +13,20 @@ Authorization: Bearer {{accessToken}}
 GET {{baseUrl}}/api/games/dash-and-crash/access?platform=webgl
 Authorization: Bearer {{accessToken}}
 
-### Get a temporary download URL for the Windows platform launcher
+### Get a temporary download URL for the Windows x64 launcher
 GET {{baseUrl}}/api/launcher/windows/access
+
+### Get a temporary download URL for the Intel macOS launcher
+GET {{baseUrl}}/api/launcher/macos-x64/access
+
+### Get a temporary download URL for the Apple Silicon macOS launcher
+GET {{baseUrl}}/api/launcher/macos-arm64/access
+
+### Get a temporary download URL for the Linux x64 launcher
+GET {{baseUrl}}/api/launcher/linux-x64/access
+
+### Redirect to a Velopack update feed asset
+GET {{baseUrl}}/api/launcher/updates/win-x64/releases.win-x64.json
 
 ### Verify an unsupported platform is rejected
 GET {{baseUrl}}/api/games/dash-and-crash/access?platform=android

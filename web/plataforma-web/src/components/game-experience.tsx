@@ -24,6 +24,13 @@ const platformOptions: {
   },
 ];
 
+const launcherPlatforms = [
+  { id: "windows", label: "Windows x64" },
+  { id: "macos-x64", label: "macOS Intel" },
+  { id: "macos-arm64", label: "macOS Apple Silicon" },
+  { id: "linux-x64", label: "Linux x64" },
+] as const;
+
 interface GameLibraryItem {
   slug: string;
   isOwned: boolean;
@@ -225,11 +232,11 @@ export function GameExperience({ game }: { game: StoreGame }) {
     );
   }
 
-  async function downloadLauncher() {
+  async function downloadLauncher(platform: (typeof launcherPlatforms)[number]["id"]) {
     setActionMessage("");
     setIsLoadingBuildAccess(true);
     try {
-      const response = await fetch("/api/platform/launcher/windows/access", {
+      const response = await fetch(`/api/platform/launcher/${platform}/access`, {
         cache: "no-store",
       });
       const body: unknown = await response.json().catch(() => null);
@@ -509,18 +516,27 @@ export function GameExperience({ game }: { game: StoreGame }) {
                 );
               })}
               {isConnectedGame && (
-                <button
-                  className="game-download-button game-launcher-download-button"
-                  disabled={isLoadingBuildAccess}
-                  onClick={downloadLauncher}
-                  type="button"
+                <div
+                  aria-label="Instaladores do launcher"
+                  className="game-launcher-downloads"
+                  role="group"
                 >
-                  Baixar instalador para Windows
-                </button>
+                  {launcherPlatforms.map((platform) => (
+                    <button
+                      className="game-download-button game-launcher-download-button"
+                      disabled={isLoadingBuildAccess}
+                      key={platform.id}
+                      onClick={() => downloadLauncher(platform.id)}
+                      type="button"
+                    >
+                      Baixar {platform.label}
+                    </button>
+                  ))}
+                </div>
               )}
               <p className="game-platforms-note">
                 {isConnectedGame
-                  ? "Baixe o launcher antes de jogar no PC. O download do jogo só começa após a validação da sua licença."
+                  ? "Escolha o instalador do seu sistema. O launcher recebe atualizações incrementais; o download do jogo só começa após a validação da sua licença."
                   : "Builds e instaladores reais ainda não foram conectados."}
               </p>
             </section>

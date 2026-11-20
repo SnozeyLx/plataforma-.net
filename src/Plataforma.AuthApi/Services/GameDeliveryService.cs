@@ -128,18 +128,33 @@ public sealed class GameDeliveryService(
 
     /// <inheritdoc />
     public Task<LauncherDownloadAccessResult> GetLauncherDownloadAccessAsync(
+        string platform,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!IsBuildConfigured(options.LauncherWindowsObjectPath))
+        var objectPath = platform switch
+        {
+            "windows" or "win-x64" => options.LauncherWindowsObjectPath,
+            "macos-x64" or "osx-x64" => options.LauncherMacOsX64ObjectPath,
+            "macos-arm64" or "osx-arm64" => options.LauncherMacOsArm64ObjectPath,
+            "linux-x64" => options.LauncherLinuxX64ObjectPath,
+            _ => null
+        };
+        if (objectPath is null)
+        {
+            return Task.FromResult(
+                new LauncherDownloadAccessResult(LauncherDownloadAccessStatus.UnsupportedPlatform));
+        }
+
+        if (!IsBuildConfigured(objectPath))
         {
             return Task.FromResult(
                 new LauncherDownloadAccessResult(LauncherDownloadAccessStatus.BuildUnavailable));
         }
 
         if (!TryCreateSignedUrl(
-                options.LauncherWindowsObjectPath.Trim('/'),
+                objectPath.Trim('/'),
                 tokenPath: null,
                 out var signedUrl,
                 out var expiresAt))
@@ -151,6 +166,45 @@ public sealed class GameDeliveryService(
         return Task.FromResult(new LauncherDownloadAccessResult(
             LauncherDownloadAccessStatus.Available,
             new LauncherDownloadAccessResponse(signedUrl, expiresAt)));
+    }
+
+    /// <inheritdoc />
+    public Task<LauncherUpdateAssetAccessResult> GetLauncherUpdateAssetAccessAsync(
+        string channel,
+        string assetName,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!IsSupportedLauncherChannel(channel) || !IsSafeLauncherUpdateAssetName(channel, assetName))
+        {
+            return Task.FromResult(
+                new LauncherUpdateAssetAccessResult(LauncherUpdateAssetAccessStatus.InvalidAsset));
+        }
+
+        if (!IsBuildConfigured(options.LauncherUpdatesDirectoryPath))
+        {
+            return Task.FromResult(
+                new LauncherUpdateAssetAccessResult(LauncherUpdateAssetAccessStatus.BuildUnavailable));
+        }
+
+        var objectPath =
+            $"{options.LauncherUpdatesDirectoryPath.Trim('/')}/{channel}/{assetName}";
+        if (!TryCreateSignedUrl(
+                objectPath,
+                tokenPath: null,
+                out var signedUrl,
+                out _,
+                options.LauncherUpdateTokenLifetimeSeconds))
+        {
+            return Task.FromResult(
+                new LauncherUpdateAssetAccessResult(
+                    LauncherUpdateAssetAccessStatus.ConfigurationUnavailable));
+        }
+
+        return Task.FromResult(new LauncherUpdateAssetAccessResult(
+            LauncherUpdateAssetAccessStatus.Available,
+            signedUrl));
     }
 
     private async Task EnsureSandboxEntitlementAsync(
@@ -217,23 +271,44 @@ public sealed class GameDeliveryService(
         && !string.IsNullOrWhiteSpace(options.CdnTokenAuthKey)
         && options.TokenLifetimeSeconds is >= 60 and <= 3600;
 
+    private static bool IsSupportedLauncherChannel(string channel) =>
+        channel is "win-x64" or "osx-x64" or "osx-arm64" or "linux-x64";
+
+    private static bool IsSafeLauncherUpdateAssetName(string channel, string assetName)
+    {
+        if (assetName == $"releases.{channel}.json"
+            || assetName == $"assets.{channel}.json"
+            || assetName == $"RELEASES-{channel}"
+            || (channel == "win-x64" && assetName == "RELEASES"))
+        {
+            return true;
+        }
+
+        return assetName.EndsWith(".nupkg", StringComparison.OrdinalIgnoreCase)
+            && assetName.All(character =>
+                char.IsAsciiLetterOrDigit(character) || character is '.' or '-' or '_' or '+')
+            && !assetName.Contains("..", StringComparison.Ordinal);
+    }
+
     private bool TryCreateSignedUrl(
         string objectPath,
         string? tokenPath,
         out string signedUrl,
-        out DateTimeOffset expiresAt)
+        out DateTimeOffset expiresAt,
+        int? tokenLifetimeSeconds = null)
     {
         signedUrl = string.Empty;
         expiresAt = default;
+        var tokenLifetime = tokenLifetimeSeconds ?? options.TokenLifetimeSeconds;
         if (!TryGetCdnBaseUri(out var cdnBaseUri)
             || string.IsNullOrWhiteSpace(options.CdnTokenAuthKey)
-            || options.TokenLifetimeSeconds is < 60 or > 3600
+            || tokenLifetime is < 60 or > 3600
             || !TryCreateCdnUri(cdnBaseUri, objectPath, out var resourceUri))
         {
             return false;
         }
 
-        expiresAt = timeProvider.GetUtcNow().AddSeconds(options.TokenLifetimeSeconds);
+        expiresAt = timeProvider.GetUtcNow().AddSeconds(tokenLifetime);
         signedUrl = SignUrl(options.CdnTokenAuthKey, resourceUri, expiresAt, tokenPath);
         return true;
     }

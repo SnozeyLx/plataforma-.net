@@ -1,7 +1,7 @@
 namespace Plataforma.AuthApi.Configuration;
 
 /// <summary>
-/// Server-side configuration for protected game builds and sandbox ownership.
+/// Server-side configuration for protected game builds and launcher releases.
 /// </summary>
 public sealed class GameDeliveryOptions
 {
@@ -31,9 +31,34 @@ public sealed class GameDeliveryOptions
     public int TokenLifetimeSeconds { get; set; } = 600;
 
     /// <summary>
-    /// Gets or sets the storage object key of the Windows launcher archive.
+    /// Gets or sets the storage object key of the Windows launcher installer.
     /// </summary>
     public string LauncherWindowsObjectPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the storage object key of the Intel macOS launcher installer.
+    /// </summary>
+    public string LauncherMacOsX64ObjectPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the storage object key of the Apple Silicon macOS launcher installer.
+    /// </summary>
+    public string LauncherMacOsArm64ObjectPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the storage object key of the Linux x64 launcher installer.
+    /// </summary>
+    public string LauncherLinuxX64ObjectPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the directory containing Velopack update packages.
+    /// </summary>
+    public string LauncherUpdatesDirectoryPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the lifetime of signed links for launcher update packages in seconds.
+    /// </summary>
+    public int LauncherUpdateTokenLifetimeSeconds { get; set; } = 3600;
 
     /// <summary>
     /// Gets or sets build paths keyed by game slug.

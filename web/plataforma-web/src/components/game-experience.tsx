@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   formatPrice,
   type GamePlatform,
@@ -90,6 +90,8 @@ export function GameExperience({ game }: { game: StoreGame }) {
   const [isWebGlOpen, setIsWebGlOpen] = useState(false);
   const [webGlUrl, setWebGlUrl] = useState("");
   const [actionMessage, setActionMessage] = useState("");
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const playerScreenRef = useRef<HTMLDivElement>(null);
   const [selectedLauncherPlatform, setSelectedLauncherPlatform] =
     useState<LauncherPlatformOption | null>(null);
 
@@ -146,6 +148,25 @@ export function GameExperience({ game }: { game: StoreGame }) {
 
     return () => controller.abort();
   }, [game.slug, isConnectedGame]);
+
+  useEffect(() => {
+    function updateFullscreenState() {
+      setIsFullscreen(document.fullscreenElement === playerScreenRef.current);
+    }
+
+    document.addEventListener("fullscreenchange", updateFullscreenState);
+    return () =>
+      document.removeEventListener("fullscreenchange", updateFullscreenState);
+  }, []);
+
+  async function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      return;
+    }
+
+    await playerScreenRef.current?.requestFullscreen();
+  }
 
   function toggleOwnership() {
     setDemoOwnership((current) => !current);
@@ -353,17 +374,32 @@ export function GameExperience({ game }: { game: StoreGame }) {
                   <p className="store-eyebrow">JOGUE SEM INSTALAR</p>
                   <h2 id="game-player-title">Jogar no navegador</h2>
                 </div>
-                <button
-                  className="primary-button game-webgl-button"
-                  disabled={!canPlayWebGl}
-                  onClick={startWebGl}
-                  type="button"
-                >
-                  {isWebGlOpen ? "Abrir novamente" : "Jogar WebGL"}
-                </button>
+                <div className="game-player-actions">
+                  <button
+                    className="secondary-button game-fullscreen-button"
+                    disabled={!webGlUrl}
+                    onClick={toggleFullscreen}
+                    type="button"
+                  >
+                    {isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
+                  </button>
+                  <button
+                    className="primary-button game-webgl-button"
+                    disabled={!canPlayWebGl}
+                    onClick={startWebGl}
+                    type="button"
+                  >
+                    {isWebGlOpen ? "Abrir novamente" : "Jogar WebGL"}
+                  </button>
+                </div>
               </div>
 
-              <div className={isWebGlOpen ? "game-player-screen running" : "game-player-screen"}>
+              <div
+                className={
+                  isWebGlOpen ? "game-player-screen running" : "game-player-screen"
+                }
+                ref={playerScreenRef}
+              >
                 {webGlUrl ? (
                   <iframe
                     allow="autoplay; fullscreen"

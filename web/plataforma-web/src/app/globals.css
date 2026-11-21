@@ -1878,6 +1878,18 @@ button:disabled {
 .game-webgl-button {
   flex: 0 0 auto;
   margin: 0;
+}
+
+.game-player-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.game-fullscreen-button {
+  min-height: 38px;
+  padding: 8px 12px;
   min-height: 38px;
   padding: 0 12px;
   width: auto;
@@ -1893,7 +1905,7 @@ button:disabled {
 
 .game-player-screen {
   align-items: center;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 1300 / 900;
   background: #080a0e;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
@@ -1917,6 +1929,16 @@ button:disabled {
   inset: 0;
   position: absolute;
   width: 100%;
+}
+
+.game-player-screen:fullscreen {
+  aspect-ratio: 1300 / 900;
+  border: 0;
+  border-radius: 0;
+  height: min(100vh, 69.230769vw);
+  margin: auto;
+  min-height: 0;
+  width: min(100vw, 144.444444vh);
 }
 
 .game-player-overlay {
@@ -2543,7 +2565,13 @@ button:disabled {
     flex-direction: column;
   }
 
-  .game-webgl-button {
+  .game-player-actions {
+    width: 100%;
+  }
+
+  .game-player-actions .game-fullscreen-button,
+  .game-player-actions .game-webgl-button {
+    flex: 1 1 0;
     width: 100%;
   }
 

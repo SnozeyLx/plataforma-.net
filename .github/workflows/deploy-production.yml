@@ -1,0 +1,99 @@
+name: Deploy platform production
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/deploy-production.yml"
+      - "docker-compose.yml"
+      - "src/Plataforma.AuthApi/**"
+      - "src/Plataforma.Core/**"
+      - "src/Plataforma.Database/**"
+      - "web/plataforma-web/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy Auth API and portal
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Deploy on production server
+        shell: bash
+        env:
+          PLATFORM_DEPLOY_HOST: ${{ vars.PLATFORM_DEPLOY_HOST }}
+          PLATFORM_DEPLOY_PORT: ${{ vars.PLATFORM_DEPLOY_PORT || '22' }}
+          PLATFORM_DEPLOY_USER: ${{ vars.PLATFORM_DEPLOY_USER }}
+          PLATFORM_DEPLOY_PATH: ${{ vars.PLATFORM_DEPLOY_PATH }}
+          PLATFORM_WEB_PM2_NAME: ${{ vars.PLATFORM_WEB_PM2_NAME }}
+          PLATFORM_DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.PLATFORM_DEPLOY_SSH_PRIVATE_KEY }}
+          PLATFORM_DEPLOY_KNOWN_HOSTS: ${{ secrets.PLATFORM_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+
+          for name in \
+            PLATFORM_DEPLOY_HOST \
+            PLATFORM_DEPLOY_PORT \
+            PLATFORM_DEPLOY_USER \
+            PLATFORM_DEPLOY_PATH \
+            PLATFORM_WEB_PM2_NAME \
+            PLATFORM_DEPLOY_SSH_PRIVATE_KEY \
+            PLATFORM_DEPLOY_KNOWN_HOSTS; do
+            if [[ -z "${!name}" ]]; then
+              echo "Required GitHub variable or secret is missing: $name" >&2
+              exit 1
+            fi
+          done
+
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$PLATFORM_DEPLOY_SSH_PRIVATE_KEY" > "$HOME/.ssh/platform_deploy_key"
+          printf '%s\n' "$PLATFORM_DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/platform_deploy_key" "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/platform_deploy_key" >/dev/null
+
+          deploy_path_b64="$(printf '%s' "$PLATFORM_DEPLOY_PATH" | base64 --wrap=0)"
+          pm2_name_b64="$(printf '%s' "$PLATFORM_WEB_PM2_NAME" | base64 --wrap=0)"
+
+          ssh \
+            -i "$HOME/.ssh/platform_deploy_key" \
+            -p "$PLATFORM_DEPLOY_PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            "$PLATFORM_DEPLOY_USER@$PLATFORM_DEPLOY_HOST" \
+            "PLATFORM_DEPLOY_PATH_B64=$deploy_path_b64 PLATFORM_WEB_PM2_NAME_B64=$pm2_name_b64 bash -l" <<'REMOTE'
+          set -euo pipefail
+
+          deploy_path="$(printf '%s' "$PLATFORM_DEPLOY_PATH_B64" | base64 --decode)"
+          web_pm2_name="$(printf '%s' "$PLATFORM_WEB_PM2_NAME_B64" | base64 --decode)"
+
+          cd "$deploy_path"
+          [[ "$(git branch --show-current)" == "main" ]] || {
+            echo "The production checkout must be on the main branch." >&2
+            exit 1
+          }
+          git pull --ff-only origin main
+
+          test -f .env.production || {
+            echo "Missing .env.production in the production checkout." >&2
+            exit 1
+          }
+          docker compose --env-file .env.production config --quiet
+
+          cd web/plataforma-web
+          npm ci
+          npm run build
+
+          cd "$deploy_path"
+          docker compose --env-file .env.production up --build -d mysql auth-api
+          pm2 reload "$web_pm2_name"
+          REMOTE

@@ -26,11 +26,11 @@ O Compose sobe MySQL, Auth API, servidores Massive e Coop, e portal web. O volum
 
 ## Deploy privado em Linux com CyberPanel
 
-Docker e PM2 podem coexistir: os containers não interrompem os processos PM2, desde que as portas publicadas pelo Compose estejam livres. Esta configuração mantém o banco e as APIs em loopback; o OpenLiteSpeed/CyberPanel deve encaminhar HTTPS para as APIs locais. O portal web continua no serviço existente do PM2.
+Docker e PM2 podem coexistir, mas o portal desta plataforma é executado pelo serviço `web` do Docker Compose, não pelo PM2. No CyberPanel/OpenLiteSpeed, encaminhe o domínio do portal por HTTPS para `127.0.0.1:${WEB_PORT:-3000}` e os subdomínios das APIs para as portas locais correspondentes. O PM2 pode continuar gerenciando outros aplicativos do servidor.
 
 ### Deploy automático pelo GitHub Actions
 
-O workflow `.github/workflows/deploy-production.yml` faz deploy em produção após pushes para `main` que alterem a Auth API, os projetos compartilhados, o Compose ou o portal. Ele atualiza a Auth API e o portal Next.js via PM2; não reinicia os servidores Massive/Coop. Também pode ser iniciado manualmente em **Actions → Deploy platform production → Run workflow**.
+O workflow `.github/workflows/deploy-production.yml` faz deploy em produção após pushes para `main` que alterem a Auth API, os projetos compartilhados, o Compose ou o portal. Ele atualiza `mysql`, `auth-api` e `web` pelo Docker Compose; não reinicia os servidores Massive/Coop. Também pode ser iniciado manualmente em **Actions → Deploy platform production → Run workflow**.
 
 Cadastre em **Settings → Secrets and variables → Actions → Variables**:
 
@@ -38,26 +38,25 @@ Cadastre em **Settings → Secrets and variables → Actions → Variables**:
 - `PLATFORM_DEPLOY_PORT`: porta SSH, se diferente de `22` (padrão do workflow).
 - `PLATFORM_DEPLOY_USER`: usuário Linux que fará o deploy.
 - `PLATFORM_DEPLOY_PATH`: caminho absoluto do clone da plataforma no servidor.
-- `PLATFORM_WEB_PM2_NAME`: nome do processo do portal mostrado por `pm2 list`.
 
 Cadastre em **Repository secrets**:
 
 - `PLATFORM_DEPLOY_SSH_PRIVATE_KEY`: chave privada exclusiva para o workflow.
 - `PLATFORM_DEPLOY_KNOWN_HOSTS`: linha de `known_hosts` do servidor, obtida e verificada por um canal confiável.
 
-Instale a chave pública correspondente em `~/.ssh/authorized_keys` do usuário de deploy. Esse usuário precisa poder executar `git pull` no clone, usar Docker Compose sem prompt interativo e controlar o processo PM2 do portal. O checkout precisa estar na branch `main`, e `.env.production` permanece no servidor, fora do Git. O workflow valida a configuração, compila o portal, atualiza `mysql`/`auth-api` e recarrega o portal; mudanças nos servidores de jogo continuam exigindo deploy separado.
+Instale a chave pública correspondente em `~/.ssh/authorized_keys` do usuário de deploy. Esse usuário precisa poder executar `git pull` no clone e Docker Compose sem prompt interativo. O checkout precisa estar na branch `main`, e `.env.production` permanece no servidor, fora do Git. O workflow valida a configuração e atualiza `mysql`, `auth-api` e `web`; mudanças nos servidores de jogo continuam exigindo deploy separado.
 
-1. No servidor, confirme `docker --version`, `docker compose version` e as portas TCP `13306`, `15000`–`15002` e UDP `9050`/`9051`. Se Docker não estiver instalado, instale o Docker Engine e o plugin Compose seguindo a documentação oficial para a versão do Ubuntu; não remova pacotes nem serviços PM2 existentes.
+1. No servidor, confirme `docker --version`, `docker compose version` e as portas TCP `13306`, `15000`–`15002`, a porta do portal definida por `WEB_PORT` (padrão `3000`) e UDP `9050`/`9051`. Se Docker não estiver instalado, instale o Docker Engine e o plugin Compose seguindo a documentação oficial para a versão do Ubuntu; não remova pacotes nem serviços PM2 existentes.
 2. Clone/atualize este repositório no servidor. Copie `deploy-production.env.example` para `.env.production` e preencha as senhas, `JWT_SIGNING_KEY_BASE64` e as credenciais SMTP diretamente no servidor. Configure `EMAIL_SMTP_HOST`, `EMAIL_SMTP_PORT`, `EMAIL_SMTP_USERNAME`, `EMAIL_SMTP_PASSWORD`, `EMAIL_FROM_ADDRESS` (remetente verificado), `EMAIL_FROM_NAME` e `PASSWORD_RESET_PUBLIC_URL=https://plataforma.crefeed.com.br/redefinir-senha`. Para Brevo, use o host `smtp-relay.brevo.com`, porta `587` e a credencial SMTP, não a chave da API. Gere valores aleatórios, por exemplo com `openssl rand -hex 32` para senhas e `openssl rand -base64 48` para a chave JWT. Não envie `.env.production` por chat nem para o Git.
-3. Crie registros DNS para os subdomínios de Auth, Massive e Coop do seu domínio (por exemplo, `auth.example.com`, `massive.example.com` e `coop.example.com`), todos apontando para o servidor. No CyberPanel/OpenLiteSpeed, configure HTTPS e proxy reverso para `127.0.0.1:15000`, `127.0.0.1:15001` e `127.0.0.1:15002`, respectivamente. Substitua os exemplos pelo domínio real; não publique as portas HTTP da aplicação nem a porta do MySQL diretamente na Internet.
+3. Crie registros DNS para o portal e para os subdomínios de Auth, Massive e Coop, todos apontando para o servidor. No CyberPanel/OpenLiteSpeed, configure HTTPS e proxy reverso do portal para `127.0.0.1:${WEB_PORT:-3000}` e das APIs para `127.0.0.1:15000`, `127.0.0.1:15001` e `127.0.0.1:15002`, respectivamente. Substitua os exemplos pelo domínio real e use a mesma porta configurada em `.env.production`; não publique as portas HTTP da aplicação nem a porta do MySQL diretamente na Internet.
 4. Mantenha `GAME_SERVER_UDP_BIND_ADDRESS=127.0.0.1` até que o firewall da rede/provedor permita uma regra de entrada UDP para `9050` e `9051` somente a partir dos endereços dos clientes de teste. Depois de confirmar a regra, altere esse valor para `0.0.0.0`. O Docker pode contornar regras UFW convencionais para portas publicadas; prefira o firewall do provedor, anterior ao host, e verifique a regra antes de liberar o UDP. O protocolo UDP atual é de protótipo e não deve ficar aberto a qualquer origem.
-5. Valide a configuração e inicie somente o banco, as APIs e os servidores de jogo (o portal `web` não é iniciado):
+5. Valide a configuração e inicie o banco, as APIs, o portal e os servidores de jogo:
 
    ```bash
    docker compose --env-file .env.production config --quiet
-   docker compose --env-file .env.production up --build -d mysql auth-api massive-server coop-server
+   docker compose --env-file .env.production up --build -d mysql auth-api web massive-server coop-server
    docker compose --env-file .env.production ps
-   docker compose --env-file .env.production logs --tail=100 migrations auth-api massive-server coop-server
+   docker compose --env-file .env.production logs --tail=100 migrations auth-api web massive-server coop-server
    ```
 
    A Auth API mantém o key ring do ASP.NET Data Protection no volume Docker `plataforma_auth_api_data_protection_keys`. Em uma stack já existente, antes da primeira recriação da Auth API com esta configuração, copie as chaves do container atual para esse volume:

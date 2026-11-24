@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy Auth API and portal
+    name: Deploy Auth API and portal with Docker Compose
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -34,7 +34,6 @@ jobs:
           PLATFORM_DEPLOY_PORT: ${{ vars.PLATFORM_DEPLOY_PORT || '22' }}
           PLATFORM_DEPLOY_USER: ${{ vars.PLATFORM_DEPLOY_USER }}
           PLATFORM_DEPLOY_PATH: ${{ vars.PLATFORM_DEPLOY_PATH }}
-          PLATFORM_WEB_PM2_NAME: ${{ vars.PLATFORM_WEB_PM2_NAME }}
           PLATFORM_DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.PLATFORM_DEPLOY_SSH_PRIVATE_KEY }}
           PLATFORM_DEPLOY_KNOWN_HOSTS: ${{ secrets.PLATFORM_DEPLOY_KNOWN_HOSTS }}
         run: |
@@ -45,7 +44,6 @@ jobs:
             PLATFORM_DEPLOY_PORT \
             PLATFORM_DEPLOY_USER \
             PLATFORM_DEPLOY_PATH \
-            PLATFORM_WEB_PM2_NAME \
             PLATFORM_DEPLOY_SSH_PRIVATE_KEY \
             PLATFORM_DEPLOY_KNOWN_HOSTS; do
             if [[ -z "${!name}" ]]; then
@@ -61,8 +59,6 @@ jobs:
           ssh-keygen -y -f "$HOME/.ssh/platform_deploy_key" >/dev/null
 
           deploy_path_b64="$(printf '%s' "$PLATFORM_DEPLOY_PATH" | base64 --wrap=0)"
-          pm2_name_b64="$(printf '%s' "$PLATFORM_WEB_PM2_NAME" | base64 --wrap=0)"
-
           ssh \
             -i "$HOME/.ssh/platform_deploy_key" \
             -p "$PLATFORM_DEPLOY_PORT" \
@@ -70,12 +66,10 @@ jobs:
             -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             "$PLATFORM_DEPLOY_USER@$PLATFORM_DEPLOY_HOST" \
-            "PLATFORM_DEPLOY_PATH_B64=$deploy_path_b64 PLATFORM_WEB_PM2_NAME_B64=$pm2_name_b64 bash -l" <<'REMOTE'
+            "PLATFORM_DEPLOY_PATH_B64=$deploy_path_b64 bash -l" <<'REMOTE'
           set -euo pipefail
 
           deploy_path="$(printf '%s' "$PLATFORM_DEPLOY_PATH_B64" | base64 --decode)"
-          web_pm2_name="$(printf '%s' "$PLATFORM_WEB_PM2_NAME_B64" | base64 --decode)"
-
           cd "$deploy_path"
           [[ "$(git branch --show-current)" == "main" ]] || {
             echo "The production checkout must be on the main branch." >&2
@@ -89,11 +83,6 @@ jobs:
           }
           docker compose --env-file .env.production config --quiet
 
-          cd web/plataforma-web
-          npm ci
-          npm run build
-
-          cd "$deploy_path"
-          docker compose --env-file .env.production up --build -d mysql auth-api
-          pm2 reload "$web_pm2_name"
+          docker compose --env-file .env.production up --build -d mysql auth-api web
+          docker compose --env-file .env.production ps
           REMOTE

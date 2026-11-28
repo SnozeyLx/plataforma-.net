@@ -72,6 +72,7 @@ jobs:
         working-directory: web/plataforma-web
         run: |
           npm ci
+          npx next typegen
           npx tsc --noEmit
           npm run lint
 

@@ -2,6 +2,13 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
+import {
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_REQUIREMENTS_HINT,
+  translateApiProblem,
+  validatePasswordComplexity,
+} from "@/lib/password-policy";
 
 interface ApiProblem {
   title?: string;
@@ -15,16 +22,10 @@ interface PasswordResetFormProps {
 }
 
 function getErrorMessage(problem: ApiProblem | null): string {
-  if (problem?.detail) {
-    return problem.detail;
-  }
-
-  if (problem?.title) {
-    return problem.title;
-  }
-
-  const firstValidationError = Object.values(problem?.errors ?? {}).flat()[0];
-  return firstValidationError ?? "Não foi possível redefinir a senha. Solicite um novo link.";
+  return translateApiProblem(
+    problem,
+    "Não foi possível redefinir a senha. Solicite um novo link.",
+  );
 }
 
 async function readProblem(response: Response): Promise<ApiProblem | null> {
@@ -49,6 +50,13 @@ export function PasswordResetForm({ email, token }: PasswordResetFormProps) {
     if (password !== confirmation) {
       setMessageType("error");
       setMessage("As senhas não coincidem.");
+      return;
+    }
+
+    const passwordCheck = validatePasswordComplexity(password);
+    if (!passwordCheck.isValid) {
+      setMessageType("error");
+      setMessage(passwordCheck.error ?? PASSWORD_REQUIREMENTS_HINT);
       return;
     }
 
@@ -100,8 +108,8 @@ export function PasswordResetForm({ email, token }: PasswordResetFormProps) {
                 <input
                   autoComplete="new-password"
                   className="form-input"
-                  maxLength={128}
-                  minLength={12}
+                  maxLength={PASSWORD_MAX_LENGTH}
+                  minLength={PASSWORD_MIN_LENGTH}
                   onChange={(event) => setPassword(event.currentTarget.value)}
                   required
                   type="password"
@@ -113,15 +121,15 @@ export function PasswordResetForm({ email, token }: PasswordResetFormProps) {
                 <input
                   autoComplete="new-password"
                   className="form-input"
-                  maxLength={128}
-                  minLength={12}
+                  maxLength={PASSWORD_MAX_LENGTH}
+                  minLength={PASSWORD_MIN_LENGTH}
                   onChange={(event) => setConfirmation(event.currentTarget.value)}
                   required
                   type="password"
                   value={confirmation}
                 />
               </label>
-              <p className="field-hint">Use pelo menos 12 caracteres.</p>
+              <p className="field-hint">{PASSWORD_REQUIREMENTS_HINT}</p>
               {message && (
                 <div className={`form-message ${messageType}`} role="status">
                   {message}

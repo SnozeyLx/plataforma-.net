@@ -164,6 +164,22 @@ export function isSameOriginMutation(request: Request): boolean {
   }
 }
 
+export function forwardClientIpHeaders(
+  sourceHeaders: Headers,
+  baseHeaders: Record<string, string> = {},
+): Record<string, string> {
+  const headers: Record<string, string> = { ...baseHeaders };
+  const forwardedFor = sourceHeaders.get("x-forwarded-for");
+  const realIp = sourceHeaders.get("x-real-ip");
+  if (forwardedFor) {
+    headers["x-forwarded-for"] = forwardedFor;
+  } else if (realIp) {
+    headers["x-forwarded-for"] = realIp;
+  }
+
+  return headers;
+}
+
 export function upstreamUnavailable(): NextResponse {
   return NextResponse.json(
     { title: "A API de autenticação está indisponível." },

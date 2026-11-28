@@ -35,6 +35,7 @@ public static class AuthEndpoints
             .WithName("RegisterAccount")
             .WithSummary("Register a platform account")
             .WithDescription("Creates an account. Email verification is not configured in this initial version.")
+            .RequireRateLimiting("strict")
             .Accepts<RegisterRequest>("application/json")
             .Produces<RegisterResponse>(StatusCodes.Status201Created)
             .ProducesValidationProblem()
@@ -44,6 +45,7 @@ public static class AuthEndpoints
             .WithName("Login")
             .WithSummary("Authenticate an account")
             .WithDescription("Validates the account password and returns an access token and a refresh token.")
+            .RequireRateLimiting("strict")
             .Accepts<LoginRequest>("application/json")
             .Produces<AuthTokensResponse>()
             .ProducesValidationProblem()
@@ -53,6 +55,7 @@ public static class AuthEndpoints
             .WithName("RefreshSession")
             .WithSummary("Rotate a refresh token")
             .WithDescription("Consumes the supplied refresh token and returns a replacement token pair.")
+            .RequireRateLimiting("strict")
             .Accepts<RefreshTokenRequest>("application/json")
             .Produces<AuthTokensResponse>()
             .ProducesValidationProblem()
@@ -61,6 +64,7 @@ public static class AuthEndpoints
         group.MapPost("/logout", LogoutAsync)
             .WithName("Logout")
             .WithSummary("Revoke a refresh token family")
+            .RequireRateLimiting("standard")
             .Accepts<RefreshTokenRequest>("application/json")
             .Produces(StatusCodes.Status204NoContent)
             .ProducesValidationProblem();
@@ -69,6 +73,7 @@ public static class AuthEndpoints
             .WithName("RequestPasswordReset")
             .WithSummary("Request a password reset email")
             .WithDescription("Returns a generic response so account existence is not disclosed.")
+            .RequireRateLimiting("strict")
             .Accepts<ForgotPasswordRequest>("application/json")
             .Produces<PasswordResetRequestedResponse>(StatusCodes.Status202Accepted)
             .ProducesValidationProblem()
@@ -77,6 +82,7 @@ public static class AuthEndpoints
         group.MapPost("/reset-password", ResetPasswordAsync)
             .WithName("ResetPassword")
             .WithSummary("Set a new password with a reset token")
+            .RequireRateLimiting("strict")
             .Accepts<ResetPasswordRequest>("application/json")
             .Produces<PasswordResetResponse>()
             .ProducesValidationProblem()
@@ -407,7 +413,11 @@ public static class AuthEndpoints
         }
 
         var email = principal.FindFirstValue(JwtRegisteredClaimNames.Email);
-        return Results.Ok(new CurrentUserResponse(userId, email ?? string.Empty));
+        var playerName = principal.FindFirstValue("player_name");
+        return Results.Ok(new CurrentUserResponse(
+            userId,
+            email ?? string.Empty,
+            string.IsNullOrWhiteSpace(playerName) ? null : playerName));
     }
 
     private static IResult MissingRequestBody() =>

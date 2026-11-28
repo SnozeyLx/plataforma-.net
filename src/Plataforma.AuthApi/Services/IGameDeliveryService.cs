@@ -24,6 +24,14 @@ public interface IGameDeliveryService
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Verifies whether the player owns a published game without generating a CDN URL.
+    /// </summary>
+    Task<GameEntitlementCheckStatus> CheckEntitlementAsync(
+        Guid userId,
+        string gameSlug,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Creates a short-lived URL for a supported launcher installer.
     /// </summary>
     Task<LauncherDownloadAccessResult> GetLauncherDownloadAccessAsync(
@@ -141,4 +149,25 @@ public enum GameBuildAccessStatus
     /// CDN delivery configuration is incomplete or invalid.
     /// </summary>
     ConfigurationUnavailable
+}
+
+/// <summary>
+/// Lists the possible results of an entitlement verification request.
+/// </summary>
+public enum GameEntitlementCheckStatus
+{
+    /// <summary>
+    /// The player owns the published game.
+    /// </summary>
+    Owned,
+
+    /// <summary>
+    /// The game is not present or not published in the catalog.
+    /// </summary>
+    GameNotFound,
+
+    /// <summary>
+    /// The player does not own the game.
+    /// </summary>
+    NotOwned
 }

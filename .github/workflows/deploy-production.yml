@@ -6,12 +6,27 @@ on:
       - main
     paths:
       - ".github/workflows/deploy-production.yml"
+      - "Directory.Build.props"
       - "docker-compose.yml"
       - "src/Plataforma.AuthApi/**"
       - "src/Plataforma.Core/**"
       - "src/Plataforma.Database/**"
+      - "src/Games.MassiveServer/**"
+      - "src/Games.CoopServer/**"
+      - "tests/Games.MassiveServer.Tests/**"
       - "web/plataforma-web/**"
   workflow_dispatch:
+    inputs:
+      deploy_platform:
+        description: "Deploy mysql, auth-api, and web"
+        required: true
+        type: boolean
+        default: true
+      deploy_gameservers:
+        description: "Deploy massive-server and coop-server"
+        required: true
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -21,13 +36,91 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    name: Deploy Auth API and portal with Docker Compose
+  verify:
+    name: Build, test, and detect deploy targets
     if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      deploy_platform: ${{ steps.changes.outputs.deploy_platform }}
+      deploy_gameservers: ${{ steps.changes.outputs.deploy_gameservers }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build and run .NET unit tests
+        run: |
+          dotnet restore MinhaPlataforma.Games.sln
+          dotnet build MinhaPlataforma.Games.sln --no-restore --configuration Release
+          dotnet test tests/Games.MassiveServer.Tests/Games.MassiveServer.Tests.csproj --no-build --configuration Release --filter "TestCategory!=Integration"
+
+      - name: Setup Node.js and check portal
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: "web/plataforma-web/package-lock.json"
+
+      - name: Lint and typecheck Next.js portal
+        working-directory: web/plataforma-web
+        run: |
+          npm ci
+          npx tsc --noEmit
+          npm run lint
+
+      - name: Detect changed targets
+        id: changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "deploy_platform=${{ inputs.deploy_platform }}" >> "$GITHUB_OUTPUT"
+            echo "deploy_gameservers=${{ inputs.deploy_gameservers }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          before="${{ github.event.before }}"
+          if [[ -z "$before" || "$before" == "0000000000000000000000000000000000000000" ]] || ! git rev-parse --verify "${before}^{commit}" >/dev/null 2>&1; then
+            echo "deploy_platform=true" >> "$GITHUB_OUTPUT"
+            echo "deploy_gameservers=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          changed_files="$(git diff --name-only "$before" "${{ github.sha }}")"
+          echo "Changed files:"
+          printf '%s\n' "$changed_files"
+
+          deploy_platform=false
+          deploy_gameservers=false
+
+          if printf '%s\n' "$changed_files" | grep -qE '^(\.github/workflows/deploy-production\.yml|Directory\.Build\.props|docker-compose\.yml|src/Plataforma\.AuthApi/|src/Plataforma\.Core/|src/Plataforma\.Database/|web/plataforma-web/)'; then
+            deploy_platform=true
+          fi
+
+          if printf '%s\n' "$changed_files" | grep -qE '^(\.github/workflows/deploy-production\.yml|Directory\.Build\.props|docker-compose\.yml|src/Plataforma\.Core/|src/Games\.MassiveServer/|src/Games\.CoopServer/)'; then
+            deploy_gameservers=true
+          fi
+
+          echo "deploy_platform=$deploy_platform" >> "$GITHUB_OUTPUT"
+          echo "deploy_gameservers=$deploy_gameservers" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy updated services on production server
+    needs: verify
+    if: |
+      github.ref == 'refs/heads/main' &&
+      (needs.verify.outputs.deploy_platform == 'true' || needs.verify.outputs.deploy_gameservers == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Deploy on production server
+      - name: Deploy selected services via SSH
         shell: bash
         env:
           PLATFORM_DEPLOY_HOST: ${{ vars.PLATFORM_DEPLOY_HOST }}
@@ -36,6 +129,8 @@ jobs:
           PLATFORM_DEPLOY_PATH: ${{ vars.PLATFORM_DEPLOY_PATH }}
           PLATFORM_DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.PLATFORM_DEPLOY_SSH_PRIVATE_KEY }}
           PLATFORM_DEPLOY_KNOWN_HOSTS: ${{ secrets.PLATFORM_DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PLATFORM: ${{ needs.verify.outputs.deploy_platform }}
+          DEPLOY_GAMESERVERS: ${{ needs.verify.outputs.deploy_gameservers }}
         run: |
           set -euo pipefail
 
@@ -52,6 +147,21 @@ jobs:
             fi
           done
 
+          services=()
+          if [[ "$DEPLOY_PLATFORM" == "true" ]]; then
+            services+=(mysql auth-api web)
+          fi
+          if [[ "$DEPLOY_GAMESERVERS" == "true" ]]; then
+            services+=(massive-server coop-server)
+          fi
+
+          if [[ "${#services[@]}" -eq 0 ]]; then
+            echo "No services selected for deploy."
+            exit 0
+          fi
+
+          echo "Services to update: ${services[*]}"
+
           install -m 700 -d "$HOME/.ssh"
           printf '%s\n' "$PLATFORM_DEPLOY_SSH_PRIVATE_KEY" > "$HOME/.ssh/platform_deploy_key"
           printf '%s\n' "$PLATFORM_DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
@@ -59,6 +169,7 @@ jobs:
           ssh-keygen -y -f "$HOME/.ssh/platform_deploy_key" >/dev/null
 
           deploy_path_b64="$(printf '%s' "$PLATFORM_DEPLOY_PATH" | base64 --wrap=0)"
+          services_str="${services[*]}"
           ssh \
             -i "$HOME/.ssh/platform_deploy_key" \
             -p "$PLATFORM_DEPLOY_PORT" \
@@ -66,7 +177,7 @@ jobs:
             -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             "$PLATFORM_DEPLOY_USER@$PLATFORM_DEPLOY_HOST" \
-            "PLATFORM_DEPLOY_PATH_B64=$deploy_path_b64 bash -l" <<'REMOTE'
+            "PLATFORM_DEPLOY_PATH_B64=$deploy_path_b64 SERVICES_TO_DEPLOY='$services_str' bash -l" <<'REMOTE'
           set -euo pipefail
 
           deploy_path="$(printf '%s' "$PLATFORM_DEPLOY_PATH_B64" | base64 --decode)"
@@ -83,6 +194,8 @@ jobs:
           }
           docker compose --env-file .env.production config --quiet
 
-          docker compose --env-file .env.production up --build -d mysql auth-api web
+          read -r -a service_array <<< "$SERVICES_TO_DEPLOY"
+          docker compose --env-file .env.production up --build -d "${service_array[@]}"
           docker compose --env-file .env.production ps
+          docker image prune -f
           REMOTE

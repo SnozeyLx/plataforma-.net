@@ -12,11 +12,11 @@ public static class GameServerPresets
         MatchStartDelaySeconds: 0,
         PersistentWorld: true);
 
-    /// <summary>Defaults for cooperative matches of one to four players.</summary>
+    /// <summary>Defaults for cooperative matches of one to ten players.</summary>
     public static GameServerPreset Coop { get; } = new(
         "arena-coop",
         MinPlayers: 1,
-        MaxPlayers: 4,
+        MaxPlayers: 10,
         UdpPort: 9051,
         MatchStartDelaySeconds: 2,
         PersistentWorld: false);

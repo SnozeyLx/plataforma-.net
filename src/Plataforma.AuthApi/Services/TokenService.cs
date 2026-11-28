@@ -171,12 +171,16 @@ public sealed class TokenService(
         DateTimeOffset now)
     {
         var accessExpiresAt = now.AddMinutes(_options.AccessTokenMinutes);
-        var claims = new[]
+        var claims = new List<Claim>
         {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString("D")),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N"))
+            new(JwtRegisteredClaimNames.Sub, user.Id.ToString("D")),
+            new(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N"))
         };
+        if (!string.IsNullOrWhiteSpace(user.PlayerName))
+        {
+            claims.Add(new Claim("player_name", user.PlayerName));
+        }
         var credentials = new SigningCredentials(
             new SymmetricSecurityKey(_signingKey),
             SecurityAlgorithms.HmacSha256);

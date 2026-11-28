@@ -5,6 +5,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { FriendChat } from "@/components/friend-chat";
 import { FriendManager } from "@/components/friend-manager";
+import {
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_REQUIREMENTS_HINT,
+  translateApiProblem,
+  validatePasswordComplexity,
+} from "@/lib/password-policy";
 
 interface CurrentUser {
   userId: string;
@@ -32,16 +39,7 @@ const profileIconTemplates = Array.from(
 );
 
 function getErrorMessage(problem: ApiProblem | null, fallback: string): string {
-  if (problem?.detail) {
-    return problem.detail;
-  }
-
-  if (problem?.title) {
-    return problem.title;
-  }
-
-  const firstValidationError = Object.values(problem?.errors ?? {}).flat()[0];
-  return firstValidationError ?? fallback;
+  return translateApiProblem(problem, fallback);
 }
 
 async function readProblem(response: Response): Promise<ApiProblem | null> {
@@ -146,9 +144,19 @@ export function AuthDemo() {
 
     const formData = new FormData(event.currentTarget);
     const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
+    const password = String(formData.get("password") ?? "");
+    if (mode === "register") {
+      const passwordCheck = validatePasswordComplexity(password);
+      if (!passwordCheck.isValid) {
+        setIsSubmitting(false);
+        setFeedback(passwordCheck.error ?? PASSWORD_REQUIREMENTS_HINT, "error");
+        return;
+      }
+    }
+
     const payload = {
       email: String(formData.get("email") ?? "").trim(),
-      password: String(formData.get("password") ?? ""),
+      password,
       ...(mode === "register"
         ? { playerName: String(formData.get("playerName") ?? "").trim() }
         : {}),
@@ -540,13 +548,14 @@ export function AuthDemo() {
                     <span className="form-label">
                       Senha
                       {mode === "register" && (
-                        <span className="field-hint">Mínimo de 12 caracteres</span>
+                        <span className="field-hint">{PASSWORD_REQUIREMENTS_HINT}</span>
                       )}
                     </span>
                     <input
                       autoComplete={mode === "login" ? "current-password" : "new-password"}
                       className="form-input"
-                      minLength={mode === "register" ? 12 : undefined}
+                      maxLength={PASSWORD_MAX_LENGTH}
+                      minLength={mode === "register" ? PASSWORD_MIN_LENGTH : undefined}
                       name="password"
                       placeholder="••••••••••••"
                       required

@@ -1,7 +1,9 @@
 using System.Net.Http.Headers;
+using Games.MassiveServer.Configuration;
 using Games.MassiveServer.Contracts;
 using Games.MassiveServer.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.Extensions.Options;
 
 namespace Games.MassiveServer.Endpoints;
 
@@ -20,12 +22,15 @@ public static class MatchmakingEndpoints
             .WithName("EnqueueForMatchmaking")
             .WithSummary("Join the game queue")
             .WithDescription("Validates the platform access token and returns a queue ticket.")
+            .RequireRateLimiting("matchmaking-write")
             .Produces<MatchmakingTicketResponse>(StatusCodes.Status202Accepted)
-            .Produces(StatusCodes.Status401Unauthorized);
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden);
 
         group.MapGet("/{ticketId:guid}", GetTicketAsync)
             .WithName("GetMatchmakingTicket")
             .WithSummary("Get queue or match status")
+            .RequireRateLimiting("matchmaking-read")
             .Produces<MatchmakingTicketResponse>()
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
@@ -33,6 +38,7 @@ public static class MatchmakingEndpoints
         group.MapDelete("/{ticketId:guid}", CancelTicketAsync)
             .WithName("CancelMatchmakingTicket")
             .WithSummary("Cancel a queue or unconsumed match ticket")
+            .RequireRateLimiting("matchmaking-write")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
@@ -40,19 +46,33 @@ public static class MatchmakingEndpoints
         return group;
     }
 
-    private static async Task<Results<Accepted<MatchmakingTicketResponse>, UnauthorizedHttpResult>> EnqueueAsync(
+    private static async Task<Results<Accepted<MatchmakingTicketResponse>, UnauthorizedHttpResult, ForbidHttpResult>> EnqueueAsync(
         HttpContext context,
         IPlatformTokenValidator tokenValidator,
         IMatchmakingService matchmakingService,
+        IOptions<GameAuthOptions> gameAuthOptions,
         CancellationToken cancellationToken)
     {
-        var userId = await GetUserIdAsync(context, tokenValidator, cancellationToken);
-        if (userId is null)
+        var bearerToken = ExtractBearerToken(context);
+        if (bearerToken is null)
         {
             return TypedResults.Unauthorized();
         }
 
-        var ticket = matchmakingService.Enqueue(userId.Value);
+        var player = await tokenValidator.ValidateAsync(bearerToken, cancellationToken);
+        if (player is null)
+        {
+            return TypedResults.Unauthorized();
+        }
+
+        var requiredSlug = gameAuthOptions.Value.RequiredGameSlug;
+        if (!string.IsNullOrWhiteSpace(requiredSlug)
+            && !await tokenValidator.HasEntitlementAsync(bearerToken, requiredSlug.Trim(), cancellationToken))
+        {
+            return TypedResults.Forbid();
+        }
+
+        var ticket = matchmakingService.Enqueue(player.UserId, player.PlayerName);
         return TypedResults.Accepted($"/api/matchmaking/tickets/{ticket.TicketId}", ticket);
     }
 
@@ -63,13 +83,13 @@ public static class MatchmakingEndpoints
         IMatchmakingService matchmakingService,
         CancellationToken cancellationToken)
     {
-        var userId = await GetUserIdAsync(context, tokenValidator, cancellationToken);
-        if (userId is null)
+        var player = await GetPlayerAsync(context, tokenValidator, cancellationToken);
+        if (player is null)
         {
             return TypedResults.Unauthorized();
         }
 
-        var ticket = matchmakingService.GetTicket(userId.Value, ticketId);
+        var ticket = matchmakingService.GetTicket(player.UserId, ticketId);
         return ticket is null ? TypedResults.NotFound() : TypedResults.Ok(ticket);
     }
 
@@ -80,21 +100,29 @@ public static class MatchmakingEndpoints
         IMatchmakingService matchmakingService,
         CancellationToken cancellationToken)
     {
-        var userId = await GetUserIdAsync(context, tokenValidator, cancellationToken);
-        if (userId is null)
+        var player = await GetPlayerAsync(context, tokenValidator, cancellationToken);
+        if (player is null)
         {
             return TypedResults.Unauthorized();
         }
 
-        return matchmakingService.Cancel(userId.Value, ticketId)
+        return matchmakingService.Cancel(player.UserId, ticketId)
             ? TypedResults.NoContent()
             : TypedResults.NotFound();
     }
 
-    private static async Task<Guid?> GetUserIdAsync(
+    private static async Task<ValidatedPlayer?> GetPlayerAsync(
         HttpContext context,
         IPlatformTokenValidator tokenValidator,
         CancellationToken cancellationToken)
+    {
+        var bearerToken = ExtractBearerToken(context);
+        return bearerToken is null
+            ? null
+            : await tokenValidator.ValidateAsync(bearerToken, cancellationToken);
+    }
+
+    private static string? ExtractBearerToken(HttpContext context)
     {
         if (!AuthenticationHeaderValue.TryParse(
                 context.Request.Headers.Authorization.ToString(),
@@ -105,6 +133,6 @@ public static class MatchmakingEndpoints
             return null;
         }
 
-        return await tokenValidator.ValidateAsync(authorization.Parameter, cancellationToken);
+        return authorization.Parameter;
     }
 }

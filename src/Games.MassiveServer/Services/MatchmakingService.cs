@@ -13,6 +13,7 @@ public sealed class MatchmakingService(
     TimeProvider timeProvider) : IMatchmakingService
 {
     private static readonly TimeSpan TicketRetention = TimeSpan.FromMinutes(10);
+    private const long HandshakeTimestampToleranceMs = 60_000;
     private readonly object _sync = new();
     private readonly MatchmakingOptions _matchmakingOptions = matchmakingOptions.Value;
     private readonly GameServerOptions _gameServerOptions = gameServerOptions.Value;
@@ -22,7 +23,7 @@ public sealed class MatchmakingService(
     private readonly List<Guid> _queue = [];
 
     /// <inheritdoc />
-    public MatchmakingTicketResponse Enqueue(Guid userId)
+    public MatchmakingTicketResponse Enqueue(Guid userId, string? playerName = null)
     {
         lock (_sync)
         {
@@ -35,7 +36,7 @@ public sealed class MatchmakingService(
             }
 
             var now = timeProvider.GetUtcNow();
-            var ticket = new QueueTicket(userId, Guid.NewGuid(), now);
+            var ticket = new QueueTicket(userId, Guid.NewGuid(), now, playerName);
             _tickets.Add(ticket.TicketId, ticket);
 
             if (_matchmakingOptions.PersistentWorld)
@@ -102,6 +103,7 @@ public sealed class MatchmakingService(
             }
 
             ticket.ConnectionTicket = null;
+            ticket.UdpSessionKey = null;
             ticket.Status = TicketStatus.Cancelled;
             return true;
         }
@@ -187,7 +189,57 @@ public sealed class MatchmakingService(
             {
                 queueTicket.ConnectionTicket = null;
                 queueTicket.Status = TicketStatus.Connected;
-                connection = new PlayerConnection(queueTicket.UserId, matchId);
+                connection = new PlayerConnection(
+                    queueTicket.UserId,
+                    matchId,
+                    queueTicket.PlayerName,
+                    queueTicket.UdpSessionKey);
+                return true;
+            }
+
+            connection = default!;
+            return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public bool TryConsumeSecureConnectionTicket(
+        Guid ticketId,
+        long timestampUnixMs,
+        ReadOnlySpan<byte> hmacSha256,
+        out PlayerConnection connection)
+    {
+        lock (_sync)
+        {
+            var now = timeProvider.GetUtcNow();
+            if (Math.Abs(now.ToUnixTimeMilliseconds() - timestampUnixMs) > HandshakeTimestampToleranceMs)
+            {
+                connection = default!;
+                return false;
+            }
+
+            if (_tickets.TryGetValue(ticketId, out var queueTicket)
+                && queueTicket.Status == TicketStatus.Ready
+                && queueTicket.ConnectionExpiresAt > now
+                && queueTicket.UdpSessionKey is not null
+                && UdpPacketCipher.VerifyHandshakeMac(queueTicket.UdpSessionKey, ticketId, timestampUnixMs, hmacSha256)
+                && queueTicket.MatchId is Guid matchId
+                && _matches.TryGetValue(matchId, out var match)
+                && match.UserIds.Contains(queueTicket.UserId)
+                && match.ConnectedUserIds.Add(queueTicket.UserId))
+            {
+                if (queueTicket.ConnectionTicket is not null)
+                {
+                    _connectionTickets.Remove(queueTicket.ConnectionTicket);
+                    queueTicket.ConnectionTicket = null;
+                }
+
+                queueTicket.Status = TicketStatus.Connected;
+                connection = new PlayerConnection(
+                    queueTicket.UserId,
+                    matchId,
+                    queueTicket.PlayerName,
+                    queueTicket.UdpSessionKey);
                 return true;
             }
 
@@ -208,6 +260,7 @@ public sealed class MatchmakingService(
                 if (match.Tickets.TryGetValue(connection.UserId, out var ticket))
                 {
                     ticket.Status = TicketStatus.Completed;
+                    ticket.UdpSessionKey = null;
                     match.Tickets.Remove(connection.UserId);
                 }
 
@@ -229,6 +282,8 @@ public sealed class MatchmakingService(
                 _connectionTickets.Remove(ticket.ConnectionTicket);
                 ticket.ConnectionTicket = null;
             }
+
+            ticket.UdpSessionKey = null;
 
             if (ticket.MatchId is Guid matchId && _matches.TryGetValue(matchId, out var match))
             {
@@ -257,13 +312,22 @@ public sealed class MatchmakingService(
             ticket.MatchId,
             ticket.Status == TicketStatus.Ready ? _gameServerOptions.PublicAddress : null,
             ticket.Status == TicketStatus.Ready ? _gameServerOptions.UdpPort : null,
-            ticket.Status == TicketStatus.Ready ? ticket.ConnectionTicket : null);
+            ticket.Status == TicketStatus.Ready ? ticket.ConnectionTicket : null,
+            ticket.Status == TicketStatus.Ready && ticket.UdpSessionKey is not null
+                ? Convert.ToBase64String(ticket.UdpSessionKey)
+                : null,
+            ticket.Status == TicketStatus.Ready
+                && _gameServerOptions.EnableWebSocketTransport
+                && !string.IsNullOrWhiteSpace(_gameServerOptions.PublicWebSocketUrl)
+                ? _gameServerOptions.PublicWebSocketUrl.Trim()
+                : null);
 
     private void AssignTicketToMatch(QueueTicket ticket, Match match, DateTimeOffset now)
     {
         ticket.Status = TicketStatus.Ready;
         ticket.MatchId = match.MatchId;
         ticket.ConnectionTicket = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
+        ticket.UdpSessionKey = RandomNumberGenerator.GetBytes(UdpPacketCipher.KeySizeBytes);
         ticket.ConnectionExpiresAt = now.AddSeconds(
             _matchmakingOptions.ConnectionTicketLifetimeSeconds);
         match.UserIds.Add(ticket.UserId);
@@ -271,7 +335,7 @@ public sealed class MatchmakingService(
         _connectionTickets.Add(ticket.ConnectionTicket, ticket);
     }
 
-    private sealed class QueueTicket(Guid userId, Guid ticketId, DateTimeOffset createdAt)
+    private sealed class QueueTicket(Guid userId, Guid ticketId, DateTimeOffset createdAt, string? playerName)
     {
         public Guid UserId { get; } = userId;
 
@@ -279,11 +343,15 @@ public sealed class MatchmakingService(
 
         public DateTimeOffset CreatedAt { get; } = createdAt;
 
+        public string? PlayerName { get; } = playerName;
+
         public TicketStatus Status { get; set; } = TicketStatus.Queued;
 
         public Guid? MatchId { get; set; }
 
         public string? ConnectionTicket { get; set; }
+
+        public byte[]? UdpSessionKey { get; set; }
 
         public DateTimeOffset ConnectionExpiresAt { get; set; }
     }

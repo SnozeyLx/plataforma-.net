@@ -19,7 +19,8 @@ public static class ProfileEndpoints
     {
         var group = endpoints.MapGroup("/api/profile")
             .WithTags("Player profile")
-            .RequireAuthorization();
+            .RequireAuthorization()
+            .RequireRateLimiting("standard");
 
         group.MapGet("", GetProfileAsync)
             .WithName("GetPlayerProfile")

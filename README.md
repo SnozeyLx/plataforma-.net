@@ -9,7 +9,7 @@ Base da plataforma em .NET 10, com autenticação ASP.NET Core Identity, MySQL, 
 - `Plataforma.AuthApi`: registro, login, refresh, logout e perfil autenticado.
 - `Plataforma.Gateway`: entrada HTTP; o proxy YARP ainda não está configurado.
 - `Games.MassiveServer`: fila para partidas de 1 a 50 jogadores, validação de token pela Auth API e handshake UDP com ticket de uso único (LiteNetLib).
-- `Games.CoopServer`: processo separado para partidas cooperativas de 1 a 4 jogadores; compartilha o transporte e a autenticação, mas tem fila e porta UDP próprias.
+- `Games.CoopServer`: processo separado para partidas cooperativas de 1 a 10 jogadores; compartilha o transporte e a autenticação, mas tem fila e porta UDP próprias.
 
 ## Requisitos
 
@@ -30,7 +30,11 @@ Docker e PM2 podem coexistir, mas o portal desta plataforma é executado pelo se
 
 ### Deploy automático pelo GitHub Actions
 
-O workflow `.github/workflows/deploy-production.yml` faz deploy em produção após pushes para `main` que alterem a Auth API, os projetos compartilhados, o Compose ou o portal. Ele atualiza `mysql`, `auth-api` e `web` pelo Docker Compose; não reinicia os servidores Massive/Coop. Também pode ser iniciado manualmente em **Actions → Deploy platform production → Run workflow**.
+O workflow `.github/workflows/deploy-production.yml` valida o build e os testes unitários (.NET) e o lint/TypeScript do portal antes de conectar ao servidor, e faz deploy seletivo em produção após pushes para `main`:
+
+- Atualiza `mysql`, `auth-api` e `web` quando há alterações em Auth API, banco, projetos compartilhados, Compose ou portal.
+- Atualiza `massive-server` e `coop-server` apenas quando há alterações em `Games.MassiveServer`, `Games.CoopServer`, `Plataforma.Core`, `Directory.Build.props` ou `docker-compose.yml` (evitando derrubar partidas ativas quando só o portal ou a Auth API mudam).
+- Também pode ser iniciado manualmente em **Actions → Deploy platform production → Run workflow**, escolhendo se deseja atualizar plataforma e/ou servidores de jogo.
 
 Cadastre em **Settings → Secrets and variables → Actions → Variables**:
 
@@ -119,8 +123,8 @@ Rotas do servidor HTTP:
 
 O Compose executa os modos em processos isolados:
 
-- Massive: HTTP `http://localhost:5001`, UDP `9050`, aceita de 1 a 50 jogadores. Por padrão, uma partida solo começa sem atraso.
-- Coop: HTTP `http://localhost:5002`, UDP `9051`, aceita de 1 a 4 jogadores. Aguarda 2 segundos depois que o mínimo é alcançado para reunir jogadores que chegaram juntos; depois inicia mesmo com apenas um.
+- Massive: HTTP `http://localhost:5001`, UDP `9050`, aceita de 1 a 50 jogadores. Por padrão, uma partida solo começa sem atraso e faz coalescing de estados (`MASSIVE_STATE_RELAY_INTERVAL_MS=25`).
+- Coop: HTTP `http://localhost:5002`, UDP `9051`, aceita de 1 a 10 jogadores. Aguarda 2 segundos depois que o mínimo é alcançado para reunir jogadores que chegaram juntos; depois inicia mesmo com apenas um, com relay imediato (`COOP_STATE_RELAY_INTERVAL_MS=0`).
 
 Para acompanhar os logs de rede em tempo real, abra um PowerShell na pasta do servidor e execute:
 
@@ -130,7 +134,7 @@ docker compose logs -f --since 5m massive-server
 
 Para o modo Coop, troque `massive-server` por `coop-server`. `Ctrl+C` encerra apenas a visualização dos logs, não o servidor. O modelo de produção usa nível `Information`; para diagnosticar temporariamente a rejeição de pacotes, defina `GAME_SERVER_LOG_LEVEL=Debug` em `.env.production` e recrie os serviços de jogo. Depois do diagnóstico, retorne para `Information`. Tickets e tokens não são registrados.
 
-`MASSIVE_MIN_PLAYERS` define o mínimo do Massive e aceita valores de 1 a 50. `COOP_MIN_PLAYERS` define o mínimo do Coop (1 a 4); use `COOP_MIN_PLAYERS=2` se quiser exigir pelo menos dois jogadores. `COOP_MAX_PLAYERS` pode reduzir a capacidade, mas não ultrapassar quatro. `COOP_MATCH_START_DELAY_SECONDS` configura a janela de agrupamento (0 a 30 segundos). Os dois modos têm fila e estado em memória separados.
+`MASSIVE_MIN_PLAYERS` define o mínimo do Massive e aceita valores de 1 a 50. `COOP_MIN_PLAYERS` define o mínimo do Coop (1 a 10); use `COOP_MIN_PLAYERS=2` se quiser exigir pelo menos dois jogadores. `COOP_MAX_PLAYERS` pode reduzir a capacidade, mas não ultrapassar dez. `COOP_MATCH_START_DELAY_SECONDS` configura a janela de agrupamento (0 a 30 segundos). Os dois modos têm fila e estado em memória separados.
 
 O limite de 50 jogadores é por partida, não por processo: a fila pode separar grupos maiores em várias partidas, mas elas ainda são alocadas pelo mesmo processo e endereço UDP. O Compose não cria instâncias automaticamente.
 
@@ -150,6 +154,29 @@ dotnet run --project .\src\Games.CoopServer\Games.CoopServer.csproj
 ```
 
 Os profiles de desenvolvimento escutam Massive em HTTP `5001`/UDP `9050` e Coop em HTTP `5002`/UDP `9051`.
+
+### Requisitos de integração para jogos clientes (Dash & Crash e futuros jogos)
+
+> **Nota para futuros agentes e desenvolvedores:** O projeto cliente Unity (como o **Dash & Crash**, mantido em projeto separado no workspace) precisa ser ajustado para acompanhar o contrato e as proteções dos servidores abaixo antes de habilitar o modo estrito em produção.
+
+1. **Autenticação, senha e fila HTTP:**
+   - Contas criadas/redefinidas na Auth API exigem senha com mínimo de **12 caracteres**, letra maiúscula, minúscula, número e caractere especial, além de rate limit por IP (`5 req / 10s` nas rotas sensíveis de `/api/auth/*` e `10 req / 10s` para entrar na fila).
+   - O jogo autentica na Auth API e envia `Authorization: Bearer <accessToken>` para `POST /api/matchmaking/tickets`, consultando `GET /api/matchmaking/tickets/{ticketId}` até `status == "ready"`.
+   - Todas as validações de compra e posse ficam fora dos servidores de jogo (na Auth API). Quando `GameAuth__RequiredGameSlug` (`MASSIVE_REQUIRED_GAME_SLUG` / `COOP_REQUIRED_GAME_SLUG`) estiver configurado, o servidor de jogo consulta `GET /api/games/{slug}/entitlement` na entrada da fila e rejeita com `403` quem não possuir o jogo.
+2. **Protocolo UDP v1 (`0xD5`) vs v2 (`0xD6` recomendado para produção):**
+   - **Modo v1 (`0xD5`, legado/compatibilidade):** o cliente envia `connectionTicket` em texto na conexão LiteNetLib e usa pacotes `0xD5` (`ClientHello = 1`, `ClientState = 2`, `ClientGameData = 3`). Mantido apenas enquanto `GAME_SERVER_REQUIRE_ENCRYPTED_UDP=false`.
+   - **Modo v2 (`0xD6`, criptografado e compacto):** `MatchmakingTicketResponse` devolve também `sessionKeyBase64` (32 bytes). O cliente **não** envia `connectionTicket` nem `accessToken` por UDP; na conexão inicial envia `[0xD6][TicketId (16B)][TimestampUnixMs (8B)][HMAC-SHA256 (32B)]` (57 bytes) e cifra todos os frames pós-connect com **AES-256-GCM** (`[0xD6][Sequence (8B)][Tag (16B)][Ciphertext]`), incrementando o `Sequence` monotonicamente para passar pela proteção contra replay.
+   - Em `0xD6`, o servidor atribui um `ushort SlotId` (2 bytes) em `ServerHandshakeAccepted` (`[0xD6][13][ushort SlotId]`) e `ServerPlayerJoined` (`[0xD6][10][ushort SlotId][string UserId][string DisplayName]`), usando `SlotId` em vez da string de `UserId` nos pacotes de estado (`ServerPlayerState`), remoção (`ServerPlayerLeft`) e dados customizados (`ServerGameData`).
+   - Quando todos os clientes suportarem `0xD6`, habilite `GAME_SERVER_REQUIRE_ENCRYPTED_UDP=true` e `GAME_SERVER_ENABLE_LEGACY_PING=false` em produção.
+3. **Envio de dados customizados de jogo (`ClientGameData = 3` / `ServerGameData = 14`):**
+   - Além de `ClientState` (25 bytes de posição/rotação/animação), o cliente pode enviar eventos binários de gameplay até `GAME_SERVER_MAX_GAME_DATA_BYTES` (`1024` bytes por padrão): `[marcador][3][scope: 0=sala, 1=unicast][destino (string UserId em v1 ou ushort SlotId em v2)][payload]`.
+4. **Limites de proteção no cliente:**
+   - Envie `ClientHello` imediatamente após conectar (`HandshakeTimeoutSeconds = 5s`, caso contrário o servidor desconecta).
+   - Mantenha a taxa de envio abaixo de `MaxPacketsPerSecondPerPeer` (`90` pacotes/s por padrão, ex.: enviar estado a 20–30 Hz em Co-op e 20 Hz em Massive); exceder o limite desconecta o peer.
+5. **Ponte WebSocket para WebGL (`GET /ws/game`):**
+   - Browsers em builds WebGL **não** permitem sockets UDP crus (LiteNetLib UDP funciona apenas em builds nativos). Para o WebGL entrar nas mesmas salas (`MatchRoom`), os servidores de jogo expõem a ponte WebSocket em `GET /ws/game` (ativada por padrão via `GAME_SERVER_ENABLE_WEBSOCKET_TRANSPORT=true`), passando pelo mesmo proxy HTTPS/WSS (`wss://`).
+   - Após abrir o WebSocket, o cliente WebGL envia como primeiro frame binário o `connectionTicket` (ou handshake `0xD6`) dentro de `HandshakeTimeoutSeconds` e passa a trocar frames binários `0xD5` (`ClientHello`, `ClientState`, `ClientGameData`), jogando na mesma partida com clientes Desktop UDP.
+   - *(Evolução futura planejada: suporte opcional a WebRTC `DataChannel` não-ordenado para tráfego estilo UDP no browser sem head-of-line blocking de TCP).*
 
 ## Catálogo e progressão
 
@@ -226,6 +253,6 @@ O hub SignalR fica em `/api/chat/hub`. O frontend usa Long Polling pelo proxy Ne
 
 ## Limitações antes de produção
 
-Esta primeira etapa não implementa confirmação de e-mail, recuperação de senha, limitação de tentativas por IP nem um proxy TLS. O matchmaking é de instância única e volátil. LiteNetLib ainda não está protegido por criptografia de aplicação; não publique a porta UDP nem use tickets de jogadores reais até projetar e validar confidencialidade, integridade e proteção contra replay para o transporte. Em produção, use HTTPS para login e matchmaking, proxy com certificados válidos, firewall restritivo, gestão segura de segredos e armazenamento distribuído se houver múltiplas réplicas. Credenciais de banco que já tenham sido expostas devem ser rotacionadas antes de staging.
+Esta primeira etapa não implementa confirmação de e-mail nem um proxy TLS embutido na composição (o proxy HTTPS deve ficar na borda, ex.: CyberPanel/OpenLiteSpeed). O matchmaking é de instância única e volátil. O protocolo UDP v1 (`0xD5`) não possui criptografia de aplicação; antes de expor a porta UDP ao público geral, migre os clientes para o protocolo v2 (`0xD6` AES-256-GCM + anti-replay) e ative `GAME_SERVER_REQUIRE_ENCRYPTED_UDP=true` com `GAME_SERVER_ENABLE_LEGACY_PING=false`. Em produção, use HTTPS para login e matchmaking, proxy com certificados válidos, firewall restritivo, gestão segura de segredos e armazenamento distribuído se houver múltiplas réplicas. Credenciais de banco que já tenham sido expostas devem ser rotacionadas antes de staging.
 
 O provider MySQL selecionado é `MySql.EntityFrameworkCore` 10.0.12, que suporta EF Core 10; sua licença NuGet é `GPL-2.0-only WITH Universal-FOSS-exception-1.0`. Revise a licença para o modelo de distribuição pretendido antes de um lançamento comercial.

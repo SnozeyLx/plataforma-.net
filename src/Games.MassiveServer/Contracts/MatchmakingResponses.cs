@@ -9,4 +9,6 @@ public sealed record MatchmakingTicketResponse(
     Guid? MatchId,
     string? ServerAddress,
     int? ServerPort,
-    string? ConnectionTicket);
+    string? ConnectionTicket,
+    string? SessionKeyBase64 = null,
+    string? WebSocketUrl = null);

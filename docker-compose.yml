@@ -39,6 +39,7 @@ services:
       Jwt__Issuer: ${JWT_ISSUER:-plataforma-auth}
       Jwt__Audience: ${JWT_AUDIENCE:-plataforma-games}
       Jwt__SigningKeyBase64: ${JWT_SIGNING_KEY_BASE64:?Configure JWT_SIGNING_KEY_BASE64 in .env}
+      Cors__AllowedOrigins: ${CORS_ALLOWED_ORIGINS:-}
       Email__Host: ${EMAIL_SMTP_HOST:-}
       Email__Port: ${EMAIL_SMTP_PORT:-587}
       Email__Username: ${EMAIL_SMTP_USERNAME:-}
@@ -76,8 +77,24 @@ services:
       ASPNETCORE_HTTP_PORTS: 8080
       GameAuth__BaseUrl: http://auth-api:8080
       GameAuth__TimeoutSeconds: ${GAME_AUTH_TIMEOUT_SECONDS:-5}
+      GameAuth__JwtIssuer: ${JWT_ISSUER:-plataforma-auth}
+      GameAuth__JwtAudience: ${JWT_AUDIENCE:-plataforma-games}
+      GameAuth__JwtSigningKeyBase64: ${JWT_SIGNING_KEY_BASE64:-}
+      GameAuth__RequiredGameSlug: ${MASSIVE_REQUIRED_GAME_SLUG:-}
       GameServer__UdpPort: ${GAME_SERVER_UDP_PORT:-9050}
       GameServer__PublicAddress: ${GAME_SERVER_PUBLIC_ADDRESS:-127.0.0.1}
+      GameServer__PublicWebSocketUrl: ${GAME_SERVER_PUBLIC_WS_URL:-}
+      Cors__AllowedOrigins: ${CORS_ALLOWED_ORIGINS:-}
+      GameServer__TickIntervalMs: ${GAME_SERVER_TICK_INTERVAL_MS:-5}
+      GameServer__HandshakeTimeoutSeconds: ${GAME_SERVER_HANDSHAKE_TIMEOUT_SECONDS:-5}
+      GameServer__MaxConnectionRequestsPerIpPerWindow: ${GAME_SERVER_MAX_CONN_PER_IP:-10}
+      GameServer__ConnectionRequestWindowSeconds: ${GAME_SERVER_CONN_WINDOW_SECONDS:-10}
+      GameServer__MaxPacketsPerSecondPerPeer: ${GAME_SERVER_MAX_PACKETS_PER_SECOND:-90}
+      GameServer__MaximumGameDataBytes: ${GAME_SERVER_MAX_GAME_DATA_BYTES:-1024}
+      GameServer__EnableLegacyPing: ${GAME_SERVER_ENABLE_LEGACY_PING:-true}
+      GameServer__EnableWebSocketTransport: ${GAME_SERVER_ENABLE_WEBSOCKET_TRANSPORT:-true}
+      GameServer__RequireEncryptedUdp: ${GAME_SERVER_REQUIRE_ENCRYPTED_UDP:-false}
+      GameServer__StateRelayIntervalMs: ${MASSIVE_STATE_RELAY_INTERVAL_MS:-25}
       Matchmaking__GameCode: ${MASSIVE_GAME_CODE:-arena-massive}
       Matchmaking__MinPlayers: ${MASSIVE_MIN_PLAYERS:-1}
       Matchmaking__MaxPlayers: ${MASSIVE_MAX_PLAYERS:-50}
@@ -101,11 +118,27 @@ services:
       ASPNETCORE_HTTP_PORTS: 8080
       GameAuth__BaseUrl: http://auth-api:8080
       GameAuth__TimeoutSeconds: ${GAME_AUTH_TIMEOUT_SECONDS:-5}
+      GameAuth__JwtIssuer: ${JWT_ISSUER:-plataforma-auth}
+      GameAuth__JwtAudience: ${JWT_AUDIENCE:-plataforma-games}
+      GameAuth__JwtSigningKeyBase64: ${JWT_SIGNING_KEY_BASE64:-}
+      GameAuth__RequiredGameSlug: ${COOP_REQUIRED_GAME_SLUG:-}
       GameServer__UdpPort: ${COOP_GAME_SERVER_UDP_PORT:-9051}
       GameServer__PublicAddress: ${COOP_GAME_SERVER_PUBLIC_ADDRESS:-127.0.0.1}
+      GameServer__PublicWebSocketUrl: ${COOP_GAME_SERVER_PUBLIC_WS_URL:-}
+      Cors__AllowedOrigins: ${CORS_ALLOWED_ORIGINS:-}
+      GameServer__TickIntervalMs: ${GAME_SERVER_TICK_INTERVAL_MS:-5}
+      GameServer__HandshakeTimeoutSeconds: ${GAME_SERVER_HANDSHAKE_TIMEOUT_SECONDS:-5}
+      GameServer__MaxConnectionRequestsPerIpPerWindow: ${GAME_SERVER_MAX_CONN_PER_IP:-10}
+      GameServer__ConnectionRequestWindowSeconds: ${GAME_SERVER_CONN_WINDOW_SECONDS:-10}
+      GameServer__MaxPacketsPerSecondPerPeer: ${GAME_SERVER_MAX_PACKETS_PER_SECOND:-90}
+      GameServer__MaximumGameDataBytes: ${GAME_SERVER_MAX_GAME_DATA_BYTES:-1024}
+      GameServer__EnableLegacyPing: ${GAME_SERVER_ENABLE_LEGACY_PING:-true}
+      GameServer__EnableWebSocketTransport: ${GAME_SERVER_ENABLE_WEBSOCKET_TRANSPORT:-true}
+      GameServer__RequireEncryptedUdp: ${GAME_SERVER_REQUIRE_ENCRYPTED_UDP:-false}
+      GameServer__StateRelayIntervalMs: ${COOP_STATE_RELAY_INTERVAL_MS:-0}
       Matchmaking__GameCode: ${COOP_GAME_CODE:-arena-coop}
       Matchmaking__MinPlayers: ${COOP_MIN_PLAYERS:-1}
-      Matchmaking__MaxPlayers: ${COOP_MAX_PLAYERS:-4}
+      Matchmaking__MaxPlayers: ${COOP_MAX_PLAYERS:-10}
       Matchmaking__MatchStartDelaySeconds: ${COOP_MATCH_START_DELAY_SECONDS:-2}
       Matchmaking__QueueTimeoutSeconds: ${COOP_QUEUE_TIMEOUT_SECONDS:-60}
       Matchmaking__ConnectionTicketLifetimeSeconds: ${COOP_TICKET_LIFETIME_SECONDS:-120}
@@ -125,6 +158,7 @@ services:
     environment:
       AUTH_API_BASE_URL: http://auth-api:8080
       MASSIVE_API_BASE_URL: http://massive-server:8080
+      COOP_API_BASE_URL: http://coop-server:8080
       HOSTNAME: 0.0.0.0
       PORT: 3000
     depends_on:

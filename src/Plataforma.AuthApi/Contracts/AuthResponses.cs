@@ -18,7 +18,7 @@ public sealed record AuthTokensResponse(
 /// <summary>
 /// Public details for the authenticated account.
 /// </summary>
-public sealed record CurrentUserResponse(Guid UserId, string Email);
+public sealed record CurrentUserResponse(Guid UserId, string Email, string? PlayerName = null);
 
 /// <summary>
 /// Generic response returned after a password reset request.

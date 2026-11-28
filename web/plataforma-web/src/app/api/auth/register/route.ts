@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {
+  forwardClientIpHeaders,
   isSameOriginMutation,
   readJson,
   readRequestJson,
@@ -19,7 +20,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const upstream = await requestAuthApi("/register", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: forwardClientIpHeaders(request.headers, { "Content-Type": "application/json" }),
     body: JSON.stringify(body),
   });
 

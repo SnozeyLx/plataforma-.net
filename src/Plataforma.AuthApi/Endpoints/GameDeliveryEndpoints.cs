@@ -37,6 +37,13 @@ public static class GameDeliveryEndpoints
             .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
             .ProducesValidationProblem();
 
+        group.MapGet("/games/{slug}/entitlement", CheckEntitlementAsync)
+            .WithName("CheckGameEntitlement")
+            .WithSummary("Verify whether the player owns a published game")
+            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+
         group.MapGet("/launcher/{platform}/access", GetLauncherDownloadAccessAsync)
             .WithName("GetLauncherDownloadAccess")
             .WithSummary("Get temporary access to a platform launcher")
@@ -119,6 +126,32 @@ public static class GameDeliveryEndpoints
                 statusCode: StatusCodes.Status503ServiceUnavailable)
         };
     }
+
+    private static async Task<Results<
+        Ok<GameEntitlementResponse>,
+        UnauthorizedHttpResult,
+        ForbidHttpResult,
+        NotFound>> CheckEntitlementAsync(
+        string slug,
+        ClaimsPrincipal principal,
+        IGameDeliveryService gameDeliveryService,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetUserId(principal, out var userId))
+        {
+            return TypedResults.Unauthorized();
+        }
+
+        var status = await gameDeliveryService.CheckEntitlementAsync(userId, slug, cancellationToken);
+        return status switch
+        {
+            GameEntitlementCheckStatus.Owned => TypedResults.Ok(new GameEntitlementResponse(slug, true)),
+            GameEntitlementCheckStatus.GameNotFound => TypedResults.NotFound(),
+            _ => TypedResults.Forbid()
+        };
+    }
+
+    private sealed record GameEntitlementResponse(string GameSlug, bool Owned);
 
     private static async Task<Results<
         Ok<LauncherDownloadAccessResponse>,

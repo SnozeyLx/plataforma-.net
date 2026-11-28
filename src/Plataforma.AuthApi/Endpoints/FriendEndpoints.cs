@@ -22,7 +22,8 @@ public static partial class FriendEndpoints
     {
         var group = endpoints.MapGroup("/api/friends")
             .WithTags("Friends")
-            .RequireAuthorization();
+            .RequireAuthorization()
+            .RequireRateLimiting("standard");
 
         group.MapGet("", GetFriendsAsync)
             .WithName("GetFriends")

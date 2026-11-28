@@ -61,38 +61,41 @@ public sealed class GameDeliveryService(
     }
 
     /// <inheritdoc />
+    public async Task<GameEntitlementCheckStatus> CheckEntitlementAsync(
+        Guid userId,
+        string gameSlug,
+        CancellationToken cancellationToken)
+    {
+        var game = await FindPublishedGameAsync(gameSlug, cancellationToken);
+        if (game is null)
+        {
+            return GameEntitlementCheckStatus.GameNotFound;
+        }
+
+        return await EnsureAndCheckOwnershipAsync(userId, game.Value.Id, game.Value.Slug, cancellationToken)
+            ? GameEntitlementCheckStatus.Owned
+            : GameEntitlementCheckStatus.NotOwned;
+    }
+
+    /// <inheritdoc />
     public async Task<GameBuildAccessResult> GetBuildAccessAsync(
         Guid userId,
         string gameSlug,
         string platform,
         CancellationToken cancellationToken)
     {
-        var game = await database.Games.AsNoTracking()
-            .Where(item => item.Slug == gameSlug && item.Status == GameStatus.Published)
-            .Select(item => new { item.Id, item.Slug })
-            .SingleOrDefaultAsync(cancellationToken);
-
+        var game = await FindPublishedGameAsync(gameSlug, cancellationToken);
         if (game is null)
         {
             return new(GameBuildAccessStatus.GameNotFound);
         }
 
-        if (options.SandboxTestModeEnabled
-            && string.Equals(game.Slug, SandboxGameSlug, StringComparison.Ordinal))
-        {
-            await EnsureSandboxEntitlementAsync(userId, cancellationToken);
-        }
-
-        var ownsGame = await database.GameEntitlements.AsNoTracking()
-            .AnyAsync(
-                entitlement => entitlement.UserId == userId && entitlement.GameId == game.Id,
-                cancellationToken);
-        if (!ownsGame)
+        if (!await EnsureAndCheckOwnershipAsync(userId, game.Value.Id, game.Value.Slug, cancellationToken))
         {
             return new(GameBuildAccessStatus.NotOwned);
         }
 
-        var build = GetBuildOptions(game.Slug);
+        var build = GetBuildOptions(game.Value.Slug);
         if (build is null)
         {
             return new(GameBuildAccessStatus.BuildUnavailable);
@@ -120,10 +123,40 @@ public sealed class GameDeliveryService(
         }
 
         return new(GameBuildAccessStatus.Available, new GameBuildAccessResponse(
-            game.Slug,
+            game.Value.Slug,
             isWebGl ? "webgl" : "windows",
             signedUrl,
             expiresAt));
+    }
+
+    private async Task<(Guid Id, string Slug)?> FindPublishedGameAsync(
+        string gameSlug,
+        CancellationToken cancellationToken)
+    {
+        var game = await database.Games.AsNoTracking()
+            .Where(item => item.Slug == gameSlug && item.Status == GameStatus.Published)
+            .Select(item => new { item.Id, item.Slug })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return game is null ? null : (game.Id, game.Slug);
+    }
+
+    private async Task<bool> EnsureAndCheckOwnershipAsync(
+        Guid userId,
+        Guid gameId,
+        string gameSlug,
+        CancellationToken cancellationToken)
+    {
+        if (options.SandboxTestModeEnabled
+            && string.Equals(gameSlug, SandboxGameSlug, StringComparison.Ordinal))
+        {
+            await EnsureSandboxEntitlementAsync(userId, cancellationToken);
+        }
+
+        return await database.GameEntitlements.AsNoTracking()
+            .AnyAsync(
+                entitlement => entitlement.UserId == userId && entitlement.GameId == gameId,
+                cancellationToken);
     }
 
     /// <inheritdoc />

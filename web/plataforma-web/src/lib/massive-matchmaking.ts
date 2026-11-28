@@ -13,9 +13,45 @@ function preventCaching(response: NextResponse): NextResponse {
   return response;
 }
 
+export type MatchmakingServerMode = "massive" | "coop";
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function getMatchmakingBaseUrl(mode: MatchmakingServerMode): string {
+  const configured =
+    mode === "coop"
+      ? (process.env.COOP_API_BASE_URL ?? "http://localhost:5002")
+      : (process.env.MASSIVE_API_BASE_URL ?? "http://localhost:5001");
+  return configured.replace(/\/+$/, "");
+}
+
+export async function handleMatchmakingTicketItem(
+  request: Request,
+  params: Promise<{ ticketId: string }>,
+  method: "GET" | "DELETE",
+  mode: MatchmakingServerMode = "massive",
+): Promise<NextResponse> {
+  const { ticketId } = await params;
+  if (!UUID_PATTERN.test(ticketId)) {
+    return NextResponse.json({ title: "Ticket inválido." }, { status: 400 });
+  }
+
+  return proxyMatchmaking(request, method, mode, ticketId);
+}
+
 export async function proxyMassiveMatchmaking(
   request: Request,
   method: "POST" | "GET" | "DELETE",
+  ticketId?: string,
+): Promise<NextResponse> {
+  return proxyMatchmaking(request, method, "massive", ticketId);
+}
+
+export async function proxyMatchmaking(
+  request: Request,
+  method: "POST" | "GET" | "DELETE",
+  mode: MatchmakingServerMode,
   ticketId?: string,
 ): Promise<NextResponse> {
   if (method !== "GET" && !isSameOriginMutation(request)) {
@@ -47,9 +83,7 @@ export async function proxyMassiveMatchmaking(
     return response;
   }
 
-  const baseUrl = (
-    process.env.MASSIVE_API_BASE_URL ?? "http://localhost:5001"
-  ).replace(/\/+$/, "");
+  const baseUrl = getMatchmakingBaseUrl(mode);
   const path = ticketId
     ? `/api/matchmaking/tickets/${encodeURIComponent(ticketId)}`
     : "/api/matchmaking/tickets";
